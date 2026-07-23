@@ -1,0 +1,17 @@
+# Generated artifacts — regenerated deterministically by the pipeline.
+data/raw/*.csv
+data/quality/*
+data/marts/*
+output/*
+!data/raw/.gitkeep
+!data/quality/.gitkeep
+!data/marts/.gitkeep
+!output/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.DS_Store

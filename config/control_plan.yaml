@@ -1,0 +1,43 @@
+# Control Plan — drives BOTH the validation rules and the scorecard specs.
+# A control plan is the quality-engineering artifact that says, per feature:
+# what we measure, the spec window, how we measure it, sample size, the minimum
+# capability we accept, and what we do when it fails. Here it is machine-readable
+# so the pipeline validates data against the SAME document the shop floor runs to.
+part_number: PN-1000
+revision: C
+program: Sensor-Bracket Assembly
+inspection_station_type: automated_vision_inspection
+
+features:
+  - id: F1
+    name: mounting_bore_diameter
+    column: feature_dim_mm
+    nominal_mm: 25.00
+    lsl_mm: 24.80
+    usl_mm: 25.20
+    unit: mm
+    measurement_method: vision_inspection_station
+    sample_size: "100% (in-line)"
+    cpk_min: 1.33
+    reaction_plan: "Quarantine affected units; notify Manufacturing Engineering; open RCCA within 24h."
+
+# Data-quality rules the pipeline enforces so the data feeding the scorecard is
+# provably trustworthy (JD: 'automated data-quality checks... provably trustworthy').
+data_quality_rules:
+  required_fields: [event_id, ts, station_id, serial_number, vision_result]
+  unique_keys: [event_id]
+  allowed_values:
+    vision_result: [PASS, FAIL]
+  value_ranges:
+    feature_dim_mm: {min: 20.0, max: 30.0}   # physically plausible sensor range
+    cycle_time_s: {min: 1.0, max: 600.0}
+  consistency_rules:
+    - id: C1
+      description: "defect_code must be null when vision_result == PASS"
+    - id: C2
+      description: "defect_code must be present when vision_result == FAIL"
+
+spc:
+  chart: p-chart              # attribute chart on first-pass defect proportion
+  sigma: 3                    # 3-sigma control limits
+  rolling_window_days: 7      # trailing window for rolling first-pass yield

@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Data code is tested with the same rigor as application code: the full
+      # pipeline runs, then the unit + SQL-equivalence suite gates the build.
+      - name: Generate deterministic dataset
+        run: python -m src.generate_data
+
+      - name: Run pipeline (validation -> SPC -> capability -> marts)
+        run: python -m src.pipeline_pandas
+
+      - name: Build HTML scorecard
+        run: python -m src.scorecard
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Publish scorecard artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-scorecard
+          path: output/scorecard.html
