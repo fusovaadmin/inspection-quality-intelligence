@@ -17,7 +17,7 @@ How to run on Databricks Free Edition (free, no cloud account/card):
 from pyspark.sql import SparkSession, Window
 from pyspark.sql import functions as F
 
-RAW_PATH = "/Volumes/main/default/inspection/inspection_events.csv"  # <-- set after upload
+RAW_PATH = "/Volumes/workspace/default/inspection/inspection_events.csv"  # <-- set after upload (Free Edition catalog is 'workspace')
 ROLLING_DAYS = 7
 SIGMA = 3
 

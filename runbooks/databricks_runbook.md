@@ -16,11 +16,17 @@ and ran my pipeline on it as a real Spark job." ~30–45 minutes.
    "Sign up for Free Edition." Use email or SSO; land in a workspace.
 2. **Generate the dataset locally** and grab the CSV:
    `python -m src.generate_data` → `data/raw/inspection_events.csv`.
-3. **Upload the CSV.** In the workspace: **Catalog → Volumes → Create/Upload**
-   (or use the older DBFS upload). Note the path, e.g.
-   `/Volumes/main/default/inspection/inspection_events.csv`.
-4. **Create a notebook**, paste `src/pipeline_pyspark.py`, and set `RAW_PATH` to
-   your uploaded path.
+3. **Create a volume, then upload.** Left sidebar **Catalog** → open the
+   **`workspace`** catalog → the **`default`** schema → **Create → Volume**,
+   name it `inspection`. Open the volume → **Upload to this volume** → drop
+   `data/raw/inspection_events.csv`. Resulting path:
+   `/Volumes/workspace/default/inspection/inspection_events.csv`.
+   (Heads-up: `information_schema.volumes` in the catalog tree is just a system
+   view that *lists* volumes — it is not where you create one. Simplest
+   alternative: **+ New → Add or upload data → Create or modify table** makes a
+   Delta table directly, then read `spark.table("workspace.default.inspection_events")`.)
+4. **Create a notebook**, attach **Serverless** compute, paste
+   `src/pipeline_pyspark.py`, and set `RAW_PATH` to your uploaded path.
 5. **Run all.** It writes Delta tables `quality.daily_fpy` and
    `quality.station_scorecard` and displays the scorecard.
 6. **Sanity-check parity.** The Spark `station_scorecard` (n_first_pass, defects,
