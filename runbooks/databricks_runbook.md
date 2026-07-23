@@ -27,8 +27,11 @@ and ran my pipeline on it as a real Spark job." ~30–45 minutes.
    Delta table directly, then read `spark.table("workspace.default.inspection_events")`.)
 4. **Create a notebook**, attach **Serverless** compute, paste
    `src/pipeline_pyspark.py`, and set `RAW_PATH` to your uploaded path.
-5. **Run all.** It writes Delta tables `quality.daily_fpy` and
-   `quality.station_scorecard` and displays the scorecard.
+5. **Run all.** The cell renders two tables **inline directly under it** — the
+   station scorecard (find S3 & S5) and the daily marts — then, if possible,
+   writes Delta tables under `workspace.quality`. If nothing renders, scroll to
+   the bottom of the cell for a red error and run the diagnostic in
+   *Troubleshooting* below.
 6. **Sanity-check parity.** The Spark `station_scorecard` (n_first_pass, defects,
    fpy_overall, spc_violations per station) should match the local pandas run in
    `data/marts/station_scorecard.csv`. Same logic, same numbers.
@@ -42,3 +45,30 @@ and ran my pipeline on it as a real Spark job." ~30–45 minutes.
 > window function, and p-chart control limits, and wrote Delta tables. It's the
 > same logic as my tested pandas reference, so I could diff the outputs. Foundry
 > and production Databricks are a tooling ramp on top of that."
+
+## Troubleshooting
+
+**"Can't attach serverless compute."** Free Edition is serverless-only and gates
+it behind identity verification — click **Verify identity** (top-right) and verify
+with LinkedIn, allow pop-ups for databricks.com, hard-refresh, reattach. Capacity
+is also flaky; a different browser/incognito or trying later often works.
+
+**Nothing renders after Run all.** Run this **in a new cell** to see where it broke:
+
+```python
+# 1) is the file actually in the volume, at this exact path?
+display(dbutils.fs.ls("/Volumes/workspace/default/inspection/"))
+
+# 2) can Spark read it, and how many rows?
+df = spark.read.option("header", True).option("inferSchema", True) \
+        .csv("/Volumes/workspace/default/inspection/inspection_events.csv")
+print("rows:", df.count())
+display(df.limit(5))
+```
+
+- Empty listing / `Path does not exist` → the CSV never uploaded to that volume
+  (re-upload, or fix `RAW_PATH` to the real path shown by step 1).
+- `rows: 0` → uploaded but unreadable (re-upload the file; don't rename it).
+- `rows: ~66000` and a table shows → the data is fine; the main cell errored
+  *after* the read — scroll to the bottom of that cell for the red traceback.
+
