@@ -63,10 +63,21 @@ scorecard = (
     .withColumn("fpy_overall", F.lit(1.0) - F.col("defects") / F.col("n_first_pass"))
 )
 
-marts.write.mode("overwrite").saveAsTable("quality.daily_fpy")
-scorecard.write.mode("overwrite").saveAsTable("quality.station_scorecard")
-
+# Show the results FIRST — this is the parity check against the local pandas run:
+# S3 and S5 should be the problem stations (most defects / spc_violations).
 try:
-    display(scorecard.orderBy("station_id"))  # noqa: F821  (Databricks builtin)
+    display(scorecard.orderBy("station_id"))   # noqa: F821  (Databricks builtin)
+    display(marts.orderBy("station_id", "d"))  # noqa: F821
 except NameError:
     scorecard.orderBy("station_id").show()
+    marts.orderBy("station_id", "d").show(20)
+
+# Then (optionally) persist as Delta tables. Wrapped so a missing schema or
+# permission can never fail the run — the displayed tables above are the result.
+try:
+    spark.sql("CREATE SCHEMA IF NOT EXISTS workspace.quality")
+    marts.write.mode("overwrite").saveAsTable("workspace.quality.daily_fpy")
+    scorecard.write.mode("overwrite").saveAsTable("workspace.quality.station_scorecard")
+    print("Wrote Delta tables: workspace.quality.daily_fpy, workspace.quality.station_scorecard")
+except Exception as exc:
+    print("Table write skipped (the displayed tables above are the result):", exc)
