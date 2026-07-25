@@ -1,7 +1,5 @@
--- p-chart with limits FROZEN on an in-control baseline (first 21 subgroups per
--- station) -- Phase I -> Phase II SPC, so a sustained shift cannot inflate its own
--- limits and hide. Skills shown: ROW_NUMBER windowing, CTE join, and a computed
--- 3-sigma limit that varies with subgroup n. Databricks / Spark SQL (runs in DuckDB).
+-- Snowflake parity — p-chart with limits frozen on the first-21-day baseline,
+-- matching src/metrics.py and sql/spc_p_chart.sql. Same answer, Snowflake engine.
 WITH daily AS (
     SELECT station_id,
            CAST(ts AS DATE) AS d,
@@ -13,12 +11,12 @@ WITH daily AS (
 ),
 ranked AS (
     SELECT station_id, d, n, fails,
-           CAST(fails AS DOUBLE) / n AS p,
+           CAST(fails AS FLOAT) / n AS p,
            ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY d) AS day_rank
     FROM daily
 ),
-baseline AS (                                  -- frozen center line from first 21 days
-    SELECT station_id, CAST(SUM(fails) AS DOUBLE) / SUM(n) AS pbar
+baseline AS (
+    SELECT station_id, CAST(SUM(fails) AS FLOAT) / SUM(n) AS pbar
     FROM ranked
     WHERE day_rank <= 21
     GROUP BY station_id

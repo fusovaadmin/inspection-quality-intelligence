@@ -30,6 +30,7 @@ def run() -> dict:
     lsl, usl, cpk_min = feat["lsl_mm"], feat["usl_mm"], feat["cpk_min"]
     window = plan["spc"]["rolling_window_days"]
     sigma = plan["spc"]["sigma"]
+    baseline = plan["spc"].get("baseline_days", 21)
 
     df = pd.read_csv(RAW, parse_dates=["ts"])
     clean, dq = validate(df, plan, persist=True)
@@ -38,7 +39,7 @@ def run() -> dict:
     fp = metrics.first_pass(clean)
     daily = metrics.daily_fpy(fp)
     daily = metrics.add_rolling_fpy(daily, window=window)
-    daily = metrics.add_pchart_limits(daily, sigma=sigma)
+    daily = metrics.add_pchart_limits(daily, sigma=sigma, baseline_days=baseline)
 
     # --- capability on valid (in physical range) first-pass measurements
     valid_dim = fp[fp["feature_dim_mm"].between(lsl - 5, usl + 5)]

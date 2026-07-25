@@ -41,3 +41,4 @@ spc:
   chart: p-chart              # attribute chart on first-pass defect proportion
   sigma: 3                    # 3-sigma control limits
   rolling_window_days: 7      # trailing window for rolling first-pass yield
+  baseline_days: 21           # in-control baseline for frozen Phase I limits

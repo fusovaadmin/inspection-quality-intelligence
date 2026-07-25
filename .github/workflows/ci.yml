@@ -27,14 +27,19 @@ jobs:
       - name: Run pipeline (validation -> SPC -> capability -> marts)
         run: python -m src.pipeline_pandas
 
-      - name: Build HTML scorecard
-        run: python -m src.scorecard
+      - name: AI root-cause triage
+        run: python -m src.ai_triage
+
+      - name: Build scorecard + interactive dashboard
+        run: |
+          python -m src.scorecard
+          python -m src.dashboard
 
       - name: Run tests
         run: pytest -q
 
-      - name: Publish scorecard artifact
+      - name: Publish dashboards
         uses: actions/upload-artifact@v4
         with:
-          name: quality-scorecard
-          path: output/scorecard.html
+          name: quality-dashboards
+          path: output/

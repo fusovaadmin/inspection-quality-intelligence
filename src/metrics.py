@@ -42,17 +42,27 @@ def add_rolling_fpy(daily: pd.DataFrame, window: int = 7) -> pd.DataFrame:
     return daily
 
 
-def add_pchart_limits(daily: pd.DataFrame, sigma: int = 3) -> pd.DataFrame:
-    """p-chart control limits with variable subgroup size n_i.
+def add_pchart_limits(daily: pd.DataFrame, sigma: int = 3, baseline_days: int = 21) -> pd.DataFrame:
+    """p-chart limits frozen on an in-control baseline (the first `baseline_days`
+    subgroups per station), then every day flagged against those frozen limits.
 
-    center  pbar = sum(fails)/sum(n) per station
+    center  pbar = sum(fails)/sum(n) over the baseline window per station
     limits  pbar +/- sigma*sqrt(pbar*(1-pbar)/n_i)   (Shewhart, per-subgroup n)
-    rule-1  flag any point beyond the control limits.
+    rule-1  flag any point beyond the limits.
+
+    Freezing limits on a validated baseline is standard Phase I -> Phase II SPC: a
+    sustained shift must not inflate its own control limits, which would mask the
+    very shift you are trying to catch.
     """
-    daily = daily.copy()
-    tot_fail = daily.groupby("station_id")["fails"].transform("sum")
-    tot_n = daily.groupby("station_id")["n"].transform("sum")
-    pbar = tot_fail / tot_n
+    daily = daily.sort_values(["station_id", "date"]).copy()
+
+    def _baseline_pbar(g: pd.DataFrame) -> float:
+        b = g.head(baseline_days)
+        tot = b["n"].sum()
+        return b["fails"].sum() / tot if tot else float("nan")
+
+    pbar_map = {st: _baseline_pbar(g) for st, g in daily.groupby("station_id")}
+    pbar = daily["station_id"].map(pbar_map)
     se = np.sqrt(pbar * (1.0 - pbar) / daily["n"])
     daily["pbar"] = pbar
     daily["ucl"] = (pbar + sigma * se).clip(upper=1.0)

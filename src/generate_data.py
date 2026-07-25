@@ -25,9 +25,10 @@ import pandas as pd
 SEED = 42
 START_DATE = "2026-04-01"
 N_DAYS = 60
-STATIONS = ["S1", "S2", "S3", "S4", "S5", "S6"]
+STATIONS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9"]
 LINE_OF = {"S1": "LINE-A", "S2": "LINE-A", "S3": "LINE-A",
-           "S4": "LINE-B", "S5": "LINE-B", "S6": "LINE-B"}
+           "S4": "LINE-B", "S5": "LINE-B", "S6": "LINE-B",
+           "S7": "LINE-C", "S8": "LINE-C", "S9": "LINE-C"}
 PART_NUMBER = "PN-1000"
 NOMINAL, LSL, USL, SIGMA = 25.00, 24.80, 25.20, 0.045  # baseline Cpk ~1.48 (in control)
 DEFECT_CODES = ["SLD-BRDG", "CMP-MISS", "SRF-SCR", "LBL-ERR"]  # non-dimensional
@@ -44,7 +45,8 @@ RAW = ROOT / "data" / "raw" / "inspection_events.csv"
 
 def _station_defect_rate(station: str, day: int) -> float:
     base = {"S1": 0.020, "S2": 0.025, "S3": 0.022,
-            "S4": 0.028, "S5": 0.024, "S6": 0.021}[station]
+            "S4": 0.028, "S5": 0.024, "S6": 0.021,
+            "S7": 0.022, "S8": 0.026, "S9": 0.020}[station]  # LINE-C: healthy, in control
     if station == "S5" and day >= S5_SHIFT_DAY:
         base += S5_SHIFT_MAGNITUDE
     return base
