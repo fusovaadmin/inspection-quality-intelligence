@@ -1,5 +1,11 @@
 # Inspection Quality Intelligence
 
+> **In plain terms (for a non-technical reviewer):** a working demo of this exact job —
+> it ingests data from factory **vision-inspection stations**, automatically flags the
+> stations that are **drifting out of spec or have suddenly shifted**, and gives a
+> plain-English **likely root cause and recommended fix** for each — with the same logic
+> running on **Databricks, Snowflake, and Palantir Foundry**. Built on synthetic sample data.
+
 A small, end-to-end **manufacturing quality data platform** over automated
 vision-inspection data: raw inspection events → control-plan validation → SPC and
 process-capability analytics → an operator-facing scorecard, with a PySpark port
