@@ -1,5 +1,7 @@
 # Inspection Quality Intelligence
 
+[![CI](https://github.com/fusovaadmin/inspection-quality-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/fusovaadmin/inspection-quality-intelligence/actions/workflows/ci.yml)
+
 > **In plain terms (for a non-technical reviewer):** a working demo of this exact job —
 > it ingests data from factory **vision-inspection stations**, automatically flags the
 > stations that are **drifting out of spec or have suddenly shifted**, and gives a
