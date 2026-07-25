@@ -1,7 +1,7 @@
 # Runbook — run this pipeline on Databricks Free Edition
 
-Goal: turn "I haven't run Databricks in production" into "I stood up Free Edition
-and ran my pipeline on it as a real Spark job." ~30–45 minutes.
+Goal: run this pipeline on Databricks Free Edition as a real Spark job and confirm
+it matches the local reference. ~30–45 minutes.
 
 ## Facts (verified July 2026)
 - **Free Edition is free** — it replaced the retired Community Edition in 2025,
@@ -37,14 +37,12 @@ and ran my pipeline on it as a real Spark job." ~30–45 minutes.
    `data/marts/station_scorecard.csv`. Same logic, same numbers.
 7. *(Optional, strong finish)* Rebuild one chart as a **Databricks dashboard** on
    `quality.daily_fpy`, or ask **Genie** a plain-English question against the
-   table — that's the "AI-assisted analytics" bullet, live.
+   table — live AI-assisted analytics on the Delta tables.
 
-## What you can now say (honestly)
-> "I ran my inspection-quality pipeline on Databricks Free Edition — read the
-> events into Spark, computed first-pass yield, a 7-day rolling yield with a
-> window function, and p-chart control limits, and wrote Delta tables. It's the
-> same logic as my tested pandas reference, so I could diff the outputs. Foundry
-> and production Databricks are a tooling ramp on top of that."
+## Result
+The Spark job reads the events, computes first-pass yield, a 7-day rolling yield
+(window function), and frozen-baseline p-chart limits, and writes Delta tables —
+the same logic as the tested pandas reference, so the outputs diff cleanly.
 
 ## Troubleshooting
 

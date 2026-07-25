@@ -96,7 +96,7 @@ src/dashboard.py             interactive line-flow dashboard + run-test simulato
 sql/                         window-function SQL + before/after tuning (+ README)
 snowflake/                   Snowflake parity SQL (same logic, warehouse engine)
 foundry/                     Foundry ontology + Workshop build spec
-docs/                        ARCHITECTURE.md + 30-min demo run of show
+docs/                        ARCHITECTURE.md (stack diagram + same-logic table)
 tests/                       unit + SQL-equivalence + triage tests
 runbooks/                    stand it up free on Databricks / Snowflake / Foundry
 .github/workflows/ci.yml     regenerate → run → triage → test on every push

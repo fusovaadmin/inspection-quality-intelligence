@@ -1,8 +1,7 @@
 # Runbook — rebuild a slice of this in Palantir Foundry (free Developer Tier)
 
-Goal: turn "I haven't run Foundry" into "I built a small end-to-end workflow on the
-Foundry Developer Tier — I know the Ontology and Workshop model firsthand."
-~1–2 hours (mostly the guided Speedrun).
+Goal: build a small end-to-end workflow on the free Foundry Developer Tier — a
+pipeline, an Ontology object, and a Workshop app. ~1–2 hours (mostly the Speedrun).
 
 ## Facts (verified July 2026)
 - The **Developer Tier is free**: a Palantir community moderator states
@@ -38,8 +37,7 @@ Foundry Developer Tier — I know the Ontology and Workshop model firsthand."
 4. *(Optional)* Try an **AIP Logic** function for a plain-English triage question
    ("which stations are trending out of control this week?").
 
-## What you can now say (honestly)
-> "I built a small end-to-end workflow on the Foundry Developer Tier — a pipeline,
-> an Ontology object for an inspection station, and a Workshop app on top. The
-> Ontology maps directly to how I've modeled quality data for years; the tooling
-> was the ramp, and it was quick."
+## Result
+An end-to-end Foundry workflow: a Pipeline Builder pipeline, an `InspectionStation`
+Ontology object, and a Workshop app on top — the same station model as the local
+pipeline, expressed in Foundry's semantic layer.

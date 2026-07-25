@@ -1,8 +1,7 @@
 # Runbook — run the same quality logic on Snowflake (free trial)
 
-Goal: turn the recruiter's "have you worked with Snowflake?" (you said no — good,
-honest) into "…and I stood the same pipeline up on a Snowflake trial to prove the
-model is portable." ~30 minutes.
+Goal: run the same quality logic on a Snowflake trial to show the model is portable
+across engines. ~30 minutes.
 
 ## Facts (verified July 2026)
 - **30-day free trial, $400 in credits, no credit card.** Sign up at
@@ -22,8 +21,8 @@ model is portable." ~30 minutes.
 5. Run **`snowflake/rolling_fpy.sql`** and **`snowflake/spc_p_chart.sql`**. Confirm
    S3/S5 surface as the out-of-control stations — same result as Databricks/DuckDB.
 
-## What you can now say (honestly)
-> "I hadn't used Snowflake, so I loaded the same inspection dataset onto a Snowflake
-> trial and ran the identical window-function SQL — rolling yield and a frozen-baseline
-> p-chart. Same answers as Databricks and DuckDB. That's the point: I model the data,
-> so the logic is portable across the lakehouse/warehouse layer."
+## Result
+The identical window-function SQL — rolling yield and a frozen-baseline p-chart —
+returns the same answers on Snowflake as on Databricks and DuckDB. The logic is
+portable across the lakehouse/warehouse layer because it lives in the data model,
+not the engine.

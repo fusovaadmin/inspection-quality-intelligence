@@ -2,8 +2,7 @@
 
 Concrete blueprint for the free **Developer Tier** (see
 `runbooks/palantir_foundry_runbook.md` for signup + the 60-min Speedrun first).
-Building this makes "I haven't done Foundry" into "I built a small ontology and a
-Workshop app on it." It maps 1:1 to what you already have in `src/`.
+It maps 1:1 to what you already have in `src/`, expressed in Foundry's primitives.
 
 ## 1. Ingest (Pipeline Builder)
 - Import `data/raw/inspection_events.csv` as a dataset.
@@ -35,5 +34,5 @@ Workshop app on it." It maps 1:1 to what you already have in `src/`.
   the Foundry-native version of `src/ai_triage.py`. Surface its output as a text
   panel on the station drill-down.
 
-Keep it small and real. One ingest → ontology → one Workshop page → one AIP function
-is enough to speak to Foundry credibly; you're not claiming production depth.
+Keep it small and real: one ingest → ontology → one Workshop page → one AIP
+function is a complete, credible slice.
