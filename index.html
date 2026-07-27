@@ -1,0 +1,90 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection Quality Intelligence</title>
+<style>
+:root{--ink:#1a1d21;--muted:#5b6470;--line:#d9dee5;--accent:#0f3d2e;--panel:#f6f8f7}
+*{box-sizing:border-box}
+body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
+  margin:0;background:#eef1f3;line-height:1.55}
+.wrap{max-width:860px;margin:0 auto;background:#fff;min-height:100vh;
+  padding:34px 30px 56px;box-shadow:0 2px 18px rgba(0,0,0,.12)}
+h1{font-size:24px;margin:0 0 4px}
+.sub{color:var(--accent);font-weight:600;margin:0 0 4px;font-size:14px}
+.meta{color:var(--muted);font-size:12px;margin:0 0 20px}
+h2{font-size:14px;color:var(--accent);border-bottom:2px solid var(--accent);
+  padding-bottom:4px;margin:30px 0 14px;text-transform:uppercase;letter-spacing:.04em}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.cards{grid-template-columns:1fr}}
+.card{display:block;text-decoration:none;color:inherit;background:var(--panel);
+  border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:8px;
+  padding:16px 18px;transition:transform .08s,box-shadow .08s}
+.card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.card b{display:block;font-size:15px;margin-bottom:5px;color:var(--accent)}
+.card span{font-size:13px;color:var(--muted)}
+.prov{display:flex;align-items:flex-start;gap:10px;background:var(--panel);
+  border:1px solid var(--line);border-left:5px solid #FF3621;border-radius:0 6px 6px 0;
+  padding:11px 15px;margin:18px 0;font-size:12px;color:var(--muted)}
+.badge{flex:none;background:#FF3621;color:#fff;font-weight:700;font-size:11px;
+  padding:3px 9px;border-radius:4px}
+ul{font-size:13.5px;padding-left:20px;margin:8px 0}
+li{margin:5px 0}
+code{background:#f0f0f0;padding:1px 5px;border-radius:4px;font-size:12px}
+.note{font-size:12px;color:var(--muted);border-top:1px solid var(--line);
+  margin-top:28px;padding-top:14px}
+a.repo{color:var(--accent);font-weight:600}
+</style></head><body><div class="wrap">
+
+<h1>Inspection Quality Intelligence</h1>
+<p class="sub">Manufacturing quality data platform over automated vision-inspection data</p>
+<p class="meta">Part PN-1000 rev C · Sensor-Bracket Assembly · 3 lines, 9 stations, 60 days ·
+  <strong>synthetic demonstration data</strong></p>
+
+<div class="prov"><span class="badge">Databricks</span>
+  <span>Yield, SPC and capability figures on these pages render from
+  <b>Databricks</b> Delta output (<code>quality.daily_fpy</code>,
+  <code>quality.station_scorecard</code>), produced by a <b>PySpark</b> lakehouse pipeline
+  and verified cell-for-cell against a tested pandas reference implementation.</span></div>
+
+<h2>The two pages</h2>
+<div class="cards">
+  <a class="card" href="output/scorecard.html">
+    <b>Station Scorecard →</b>
+    <span>KPI tiles, the nine-station status table, automated findings, and five charts.
+    Every row links through to that line or station in the dashboard.</span></a>
+  <a class="card" href="output/dashboard.html">
+    <b>Quality Intelligence Dashboard →</b>
+    <span>Live line-flow view across three production lines. Click a station to drill into
+    its SPC control chart, root-cause triage, and a test simulator you can run.</span></a>
+</div>
+
+<h2>What it does</h2>
+<ul>
+  <li><b>Validates before it measures.</b> A machine-readable control plan drives the
+    data-quality gate — required fields, unique keys, physical ranges, result/defect-code
+    consistency. 2,144 of 98,401 events are caught before they reach any metric.</li>
+  <li><b>Two failure modes, two methods.</b> Station S3 drifts dimensionally and its Cpk
+    collapses to 0.51. Station S5's capability stays healthy at 1.478 — only the p-chart
+    catches it, with 13 out-of-control points. That contrast is the point of the demo.</li>
+  <li><b>Frozen-baseline SPC.</b> Control limits are fixed on an in-control baseline
+    (first 21 subgroups per station) rather than the whole window, so a sustained shift
+    cannot inflate its own limits and hide itself.</li>
+  <li><b>Deterministic triage.</b> Classification is rule-based SPC/RCCA logic. The
+    language model only writes the narrative afterward — it never makes the call.</li>
+</ul>
+
+<h2>Where the logic runs</h2>
+<ul>
+  <li><b>Databricks</b> — PySpark job executed on Free Edition, writing Delta tables.
+    Its output drives these pages.</li>
+  <li><b>Palantir Foundry</b> — a live slice: Pipeline Builder pipeline, a two-object
+    ontology linked one-to-many, and a Workshop scorecard app.</li>
+  <li><b>Snowflake</b> — SQL written for portability. Not executed.</li>
+  <li><b>Local</b> — the tested pandas reference implementation, 13 passing tests in CI.</li>
+</ul>
+
+<p class="note">This platform validates inspection <b>results</b> against a control plan —
+it is not a computer-vision or image-processing system. All data is synthetic, generated
+from a fixed seed so every run reproduces exactly.
+<a class="repo" href="https://github.com/fusovaadmin/inspection-quality-intelligence">Source on GitHub →</a></p>
+
+</div></body></html>
