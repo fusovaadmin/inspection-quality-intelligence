@@ -1,0 +1,6 @@
+defect_code,count,cum_pct
+SLD-BRDG,1029,41.3
+CMP-MISS,653,67.5
+SRF-SCR,421,84.4
+DIM-OOS,198,92.4
+LBL-ERR,190,100.0

@@ -1,4 +1,6 @@
-# Generated artifacts — regenerated deterministically by the pipeline.
+# Generated artifacts — regenerated deterministically by the pipeline
+# (src/generate_data.py uses a fixed SEED and start date, so every run is identical).
+# (data/raw is ~8 MB of synthetic events; CI regenerates it from the seed.)
 data/raw/*.csv
 data/quality/*
 data/marts/*
@@ -7,6 +9,21 @@ output/*
 !data/quality/.gitkeep
 !data/marts/.gitkeep
 !output/.gitkeep
+
+# ...with two deliberate exceptions, versioned so the repo is self-demonstrating:
+#
+# 1. data/marts/*.csv — daily_fpy.csv and station_scorecard.csv are the CSVs
+#    written by the PySpark job on Databricks (workspace.quality.daily_fpy /
+#    .station_scorecard), kept as provenance for the published pages.
+#    pareto.csv comes from the local validation stage; Spark does not emit it.
+#    Running `python -m src.pipeline_pandas` locally overwrites them with the
+#    pandas run: identical values, slightly different float formatting, so
+#    git may show them as modified. That is expected — the two implementations
+#    are diffed cell-for-cell and agree to 4.44e-16.
+# 2. output/*.html — the scorecard and dashboard are served by GitHub Pages,
+#    so they must be committed rather than built on demand.
+!data/marts/*.csv
+!output/*.html
 
 # Python
 __pycache__/
