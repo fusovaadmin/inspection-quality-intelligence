@@ -29,10 +29,25 @@ It maps 1:1 to what you already have in `src/`, expressed in Foundry's primitive
 - Optional: a **line filter** so LINE-A / LINE-B / LINE-C each get a view (the tabs).
 
 ## 4. AIP (the AI layer — your differentiator)
-- An **AIP Logic** function `triageStation(station)` that, given a station's pattern
-  (drift vs. shift vs. in-control), returns the root-cause hypothesis + actions —
-  the Foundry-native version of `src/ai_triage.py`. Surface its output as a text
-  panel on the station drill-down.
+- Two functions, deliberately split so the LLM never classifies:
+  **`classifyStationPattern(station)`** — a plain (non-LLM) function that returns
+  drift / shift / false-alarm / in-control from SPC + capability thresholds — and
+  **`narrateStationTriage(station)`** — an **AIP Logic** function whose Use LLM
+  block only turns that fixed verdict into an operator-readable finding. Surface
+  the narrative as a markdown panel on the station drill-down.
+- Full build spec, prompt text, parity table, and UI steps:
+  **`foundry/aip_logic_spec.md`**.
 
 Keep it small and real: one ingest → ontology → one Workshop page → one AIP
 function is a complete, credible slice.
+
+## Build status (2026-07-27)
+| Piece | State |
+|---|---|
+| Pipeline Builder pipeline `daily_station_metric_pipeline` | ✅ built |
+| Ontology `InspectionStation` (9) + `DailyStationMetric` (540) + 1→∗ link | ✅ built |
+| Workshop object table + status conditional formatting | ✅ built |
+| 4 KPI tiles (97.4% · 2 · 97.8% · 0.51) | ✅ built, parity-verified |
+| SPC p-chart w/ out-of-control scatter on the shared left axis | ✅ built (axis fixed) |
+| Cpk-by-station bars · rolling-FPY 9-line · Defect Pareto | ✅ built, parity-verified |
+| `classifyStationPattern` + `narrateStationTriage` (AIP) | ⬜ **designed, not built** |

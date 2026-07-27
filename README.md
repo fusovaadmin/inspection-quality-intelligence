@@ -46,9 +46,11 @@ and real quality problems are baked in so the analytics have something to catch.
   inspection test" simulator that drops a batch onto the control chart.
 - **AI root-cause triage** (`src/ai_triage.py`) — classifies each flagged station
   (drift vs. shift vs. false alarm) and emits a hypothesis + recommended actions.
-- **Cross-stack portability** — the same logic runs on Databricks
-  (`src/pipeline_pyspark.py`), Snowflake (`snowflake/`), and Foundry (`foundry/`);
-  see `docs/ARCHITECTURE.md`.
+- **Cross-stack portability** — the same logic is **executed on Databricks**
+  (`src/pipeline_pyspark.py`, and its Delta output drives the published pages),
+  **built as a live Palantir Foundry slice** (`foundry/` — pipeline, ontology,
+  Workshop app), and **written as Snowflake SQL** (`snowflake/` — a portability
+  proof, not executed); see `docs/ARCHITECTURE.md`.
 
 ## The scenario (and the baked-in findings the pipeline auto-detects)
 
@@ -58,7 +60,7 @@ and real quality problems are baked in so the analytics have something to catch.
 |--------|-------|-------------|
 | Gradual dimensional **drift** toward the USL | station **S3** | Cpk collapses 1.48 → ~0.5; capability alert |
 | Step **process shift** in defect rate (~day 40) | station **S5** | p-chart rule-1 out-of-control run |
-| ~1% missing serials, dup event_ids, sensor glitches, PASS-with-defect | across all | control-plan validation (~1,400 events quarantined) |
+| ~1% missing serials, dup event_ids, sensor glitches, PASS-with-defect | across all | control-plan validation (**2,144 offending events of 98,401** → DQ score 0.9782) |
 
 ## Architecture
 
@@ -108,7 +110,7 @@ src/scorecard.py             static HTML scorecard
 src/dashboard.py             interactive line-flow dashboard + run-test simulator
 sql/                         window-function SQL + before/after tuning (+ README)
 snowflake/                   Snowflake parity SQL (same logic, warehouse engine)
-foundry/                     Foundry ontology + Workshop build spec
+foundry/                     Foundry ontology + Workshop build spec + AIP Logic spec
 docs/                        ARCHITECTURE.md (stack diagram + same-logic table)
 tests/                       unit + SQL-equivalence + triage tests
 runbooks/                    stand it up free on Databricks / Snowflake / Foundry

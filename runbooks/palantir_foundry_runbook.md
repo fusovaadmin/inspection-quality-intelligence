@@ -34,8 +34,13 @@ pipeline, an Ontology object, and a Workshop app. ~1–2 hours (mostly the Speed
      data model you've built for 20 years.
    - Build a one-page **Workshop** app: a station table + a yield trend, filtered
      by line. That's the operator-facing scorecard.
-4. *(Optional)* Try an **AIP Logic** function for a plain-English triage question
-   ("which stations are trending out of control this week?").
+4. **Add the AIP layer** — a deterministic classifier function plus one **AIP Logic**
+   function that only narrates its verdict. Create it from the workspace nav bar or
+   `CTRL + J` / `CMD + J`, or **Files → +New → AIP Logic** (Logic files must live in a
+   *project* folder, not your home folder); add the input, blocks, and Use LLM prompt;
+   **Run** to test in the Debugger; **Publish**; then bind it to a markdown widget in
+   Workshop. Full spec + verbatim prompt: **`foundry/aip_logic_spec.md`**.
+   Source: <https://www.palantir.com/docs/foundry/logic/getting-started>
 
 ## Result
 An end-to-end Foundry workflow: a Pipeline Builder pipeline, an `InspectionStation`
