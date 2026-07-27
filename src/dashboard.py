@@ -84,7 +84,7 @@ def _build_data() -> dict:
 
 HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inspection Quality Intelligence — Live Dashboard</title>
+<title>Quality Intelligence Dashboard</title>
 <style>
 :root{--ink:#1a1d21;--muted:#5b6470;--line:#d9dee5;--accent:#0f3d2e;--panel:#f6f8f7;
   --ok:#0f7a4f;--watch:#8a5a00;--alert:#b3261e;}
@@ -99,11 +99,11 @@ h2{font-size:14px;color:var(--accent);border-bottom:2px solid var(--accent);padd
 .tiles{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}
 .tile{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 15px}
 .tv{font-size:24px;font-weight:700}.tl{font-size:12px;color:var(--muted)}
-.line{margin:10px 0 18px}
-.lineLabel{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
-.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
-.node{width:190px;background:#fff;border:1px solid var(--line);border-left-width:5px;border-radius:8px;
-  padding:10px 12px;cursor:pointer;transition:transform .08s,box-shadow .08s}
+.line{margin:12px 0 26px}
+.lineLabel{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px}
+.flow{display:flex;align-items:stretch;gap:10px;row-gap:16px;flex-wrap:wrap}
+.node{flex:1 1 0;min-width:180px;background:#fff;border:1px solid var(--line);border-left-width:5px;
+  border-radius:8px;padding:12px 14px;cursor:pointer;transition:transform .08s,box-shadow .08s}
 .node:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.12)}
 .node .top{display:flex;align-items:center;justify-content:space-between}
 .node .sid{font-weight:700;font-size:15px}
@@ -111,7 +111,19 @@ h2{font-size:14px;color:var(--accent);border-bottom:2px solid var(--accent);padd
 .node .kv{font-size:12px;color:var(--muted);margin-top:4px;display:flex;justify-content:space-between}
 .node .kv b{color:var(--ink)}
 .flag{font-size:12px;font-weight:700;padding:1px 7px;border-radius:10px;color:#fff}
-.arrow{align-self:center;color:var(--muted);font-size:22px;padding:0 6px;user-select:none}
+.arrow{flex:0 0 auto;align-self:center;color:var(--accent);font-size:34px;font-weight:700;
+  line-height:1;padding:0 2px;user-select:none}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.prov{display:flex;align-items:flex-start;gap:10px;background:var(--panel);
+  border:1px solid var(--line);border-left:5px solid #FF3621;border-radius:0 6px 6px 0;
+  padding:10px 14px;margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.5}
+.provbadge{flex:none;background:#FF3621;color:#fff;font-weight:700;font-size:11px;
+  letter-spacing:.03em;padding:3px 9px;border-radius:4px}
+.prov b{color:var(--ink)}
+.prov code{background:#eceff1;padding:1px 5px;border-radius:4px;font-size:11px}
+.scorelink{flex:none;color:var(--accent);font-weight:600;font-size:13px;text-decoration:none;
+  border:1px solid var(--line);border-radius:6px;padding:7px 13px;white-space:nowrap;background:var(--panel)}
+.scorelink:hover,.scorelink:focus{background:#eef5f1;border-color:var(--accent);outline:none}
 .tabs{display:flex;gap:4px;margin:8px 0 12px;border-bottom:2px solid var(--line);flex-wrap:wrap}
 .tab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 18px;cursor:pointer;font:600 13px inherit;color:var(--muted)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
@@ -129,9 +141,21 @@ svg{max-width:100%;height:auto}.hint{font-size:12px;color:var(--muted)}
 table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid var(--line);padding:5px 8px;text-align:center}
 th{background:var(--accent);color:#fff}
 </style></head><body><div class="wrap">
-<h1>Inspection Quality Intelligence</h1>
-<p class="sub" id="subhead"></p>
-<p class="meta" id="metahead"></p>
+<div class="topbar">
+  <div class="titleblock">
+    <h1>Quality Intelligence Dashboard</h1>
+    <p class="sub" id="subhead"></p>
+    <p class="meta" id="metahead"></p>
+  </div>
+  <a class="scorelink" href="scorecard.html">&#8592; Back to Scorecard</a>
+</div>
+<div class="prov"><span class="provbadge">Databricks</span>
+  <span>Yield, SPC and capability figures on this page are rendered directly from
+  <b>Databricks</b> Delta output &mdash; <code>quality.daily_fpy</code> and
+  <code>quality.station_scorecard</code> &mdash; produced by a <b>PySpark</b> lakehouse pipeline
+  (7-day rolling FPY via a window function; p-chart limits frozen on a 21-day baseline),
+  verified cell-for-cell against the tested reference implementation.
+  Defect Pareto and data-quality counts come from the same pipeline's validation stage.</span></div>
 <div id="app"></div>
 </div>
 <script id="data" type="application/json">__DATA__</script>
@@ -191,8 +215,8 @@ const COLOR2=i=>['#0f3d2e','#2a6f52','#5a9b7f','#8ac0a8'][i%4];
 // ---- views ------------------------------------------------------------------
 function node(st){
   const flag = st.status!=='OK'?`<span class="flag" style="background:${COLOR[st.status]}">${st.status==='ALERT'?'🚩 ALERT':'⚠ WATCH'}</span>`:'';
-  return `<div class="node" style="border-left-color:${COLOR[st.status]}" onclick="showStation('${st.id}')">
-    <div class="top"><span class="sid"><span class="dot" style="background:${COLOR[st.status]}"></span>${st.id}</span>${flag}</div>
+  return `<div class="node" style="border-left-color:${COLOR[st.status]}" onclick="go('${st.line}/${st.id}')">
+    <div class="top"><span class="sid"><span class="dot" style="background:${COLOR[st.status]}"></span>Station ${st.id}</span>${flag}</div>
     ${sparkline(st)}
     <div class="kv"><span>FPY</span><b>${pct(st.fpy)}</b></div>
     <div class="kv"><span>Cpk (recent)</span><b>${st.cpk_recent}</b></div>
@@ -204,9 +228,35 @@ function lineFlow(lineId){
     ss.map((s,i)=>node(s)+(i<ss.length-1?'<span class="arrow">→</span>':'')).join('')+`</div></div>`;
 }
 const LINES=[...new Set(D.stations.map(s=>s.line))].sort();
-let curLine=LINES[0];
-function lineTabs(){return `<div class="tabs">`+LINES.map(l=>`<button class="tab${l===curLine?' active':''}" onclick="selectLine('${l}')">${l}</button>`).join('')+`</div>`;}
-function selectLine(l){curLine=l;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.textContent===l));document.getElementById('flowbox').innerHTML=lineFlow(l);}
+
+/* ---- hash routing ----------------------------------------------------------
+   The URL hash is the single source of truth for what's on screen. scorecard.html
+   deep-links in two forms, mirroring the Line -> Station hierarchy:
+       dashboard.html#LINE-B       -> line overview, LINE-B tab active
+       dashboard.html#LINE-B/S5    -> Station S5 detail page
+   Every navigation just sets the hash; hashchange re-renders. ------------------ */
+function parseHash(){
+  const parts=decodeURIComponent((location.hash||'').replace(/^#/,'')).split('/');
+  const l=LINES.indexOf(parts[0])>=0?parts[0]:null;
+  const s=(parts[1]&&byId(parts[1]))?parts[1]:null;
+  return {line:l, station:s};
+}
+let curLine=parseHash().line||LINES[0];
+let curView=null;                       // hash string currently rendered
+function go(h){                         // navigate; re-render if hash is unchanged
+  if((location.hash||'').replace(/^#/,'')===h){curView=null;render();}
+  else location.hash=h;
+}
+function render(){
+  const {line,station}=parseHash();
+  const want=station?(byId(station).line+'/'+station):(line||LINES[0]);
+  if(want===curView) return;
+  curView=want;
+  if(station){curLine=byId(station).line;showStation(station);}
+  else {curLine=line||LINES[0];overview();}
+}
+window.addEventListener('hashchange',render);
+function lineTabs(){return `<div class="tabs">`+LINES.map(l=>`<button class="tab${l===curLine?' active':''}" onclick="go('${l}')">${l}</button>`).join('')+`</div>`;}
 function overview(){
   document.getElementById('app').innerHTML = `
   <div class="tiles">
@@ -229,8 +279,8 @@ function showStation(id){
   const causes=(t.likely_causes||[]).map(c=>`<span class="chip" style="background:${COLOR[t.severity]||'#888'}">${c}</span>`).join('');
   const acts=(t.recommended_actions||[]).map(a=>`<li>${a}</li>`).join('');
   document.getElementById('app').innerHTML=`
-  <button class="back" onclick="overview()">← All stations</button>
-  <h2>Station ${s.id} · ${s.line} <span class="pill" style="background:${COLOR[s.status]}">${s.status}</span></h2>
+  <button class="back" onclick="go(curLine)">← All stations on ${s.line}</button>
+  <h2>${s.line} · Station ${s.id} <span class="pill" style="background:${COLOR[s.status]}">${s.status}</span></h2>
   <div class="tiles">
     <div class="tile"><div class="tv">${pct(s.fpy)}</div><div class="tl">First-pass yield</div></div>
     <div class="tile"><div class="tv" style="color:${s.cpk_recent<M.cpk_min?COLOR.ALERT:COLOR.OK}">${s.cpk_recent}</div><div class="tl">Cpk (recent)</div></div>
@@ -269,7 +319,7 @@ function runTest(id){
      ${ooc?`<span class="flag" style="background:${COLOR.ALERT}">🚩 OUT OF CONTROL (> UCL ${pct(ucl)})</span>`:`<span class="flag" style="background:${COLOR.OK}">in control</span>`}</p>
      <div class="chips">${chips}</div>`;
 }
-overview();
+render();          // boot from the URL hash (deep link) or default to the first line
 </script></body></html>"""
 
 
