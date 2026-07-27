@@ -30,9 +30,17 @@ and real quality problems are baked in so the analytics have something to catch.
 - **Pipelines in a cloud lakehouse** — the transform ships as tested pandas
   (`src/pipeline_pandas.py`) **and** as an idiomatic PySpark job for Databricks
   (`src/pipeline_pyspark.py`), plus Spark-SQL/DuckDB queries in `sql/`.
+- **Heterogeneous system joins** — the stations are only one source. **ERP** work
+  orders, an **MES** shift log and **QMS** nonconformance reports are landed as
+  their own systems wrote them (different key formats, different date formats,
+  different grain, different defect taxonomy) and reconciled through a versioned
+  **crosswalk** (`config/system_crosswalk.yaml`, `src/integrate.py`) using three
+  different join strategies: a **non-equi range join**, an **interval join**, and a
+  **normalized-key join**. Everything that fails to join is reported, not dropped.
 - **Advanced SQL** — window functions (rolling yield), window aggregates for SPC
-  center lines, and a real **before/after query tuning** with a proof of
-  equivalence (`sql/README.md`).
+  center lines, a **three-system join in one query** (`sql/heterogeneous_join.sql`),
+  and a real **before/after query tuning** with a proof of equivalence
+  (`sql/README.md`).
 - **Data-quality engineering** — a machine-readable **control plan**
   (`config/control_plan.yaml`) drives automated validation: required fields,
   unique keys, physical ranges, and result/defect-code consistency, so the data
@@ -62,6 +70,20 @@ and real quality problems are baked in so the analytics have something to catch.
 | Step **process shift** in defect rate (~day 40) | station **S5** | p-chart rule-1 out-of-control run |
 | ~1% missing serials, dup event_ids, sensor glitches, PASS-with-defect | across all | control-plan validation (**2,144 offending events of 98,401** → DQ score 0.9782) |
 
+Plus four **cross-system** breaks that no single system can see on its own — the
+kind you only find once ERP, MES and QMS are joined to the floor:
+
+| Cross-system break | Where | Caught by |
+|--------------------|-------|-----------|
+| Work order **closed two days early** while the line kept running | LINE-C, Apr 27–28 | **1,080** first-pass inspections with no open work order |
+| MES **logger outage** (3 shifts) | WC-06 / S6, shift B | **172** events with no shift context — invisible if you drive the join from MES |
+| MES kept **booking to a work order ERP had closed** | LINE-C | **18** shift records contradicting ERP |
+| QMS **NCRs against serials that were never inspected**, and NCR categories that **contradict** the station's defect code | across all | **15** orphan NCRs · **10** taxonomy conflicts |
+
+Referential-integrity score: **0.9771**. The MES production day is not the
+calendar day (shift C runs 22:00→06:00), so joining on `CAST(ts AS DATE)`
+mis-assigns **24.9% of events** — quantified in `data/quality/integration_report.json`.
+
 ## Architecture
 
 ```
@@ -70,16 +92,20 @@ data/raw/inspection_events.csv            (generate_data.py — deterministic, s
         ▼
 control-plan validation  ──► data/quality/{dq_report.json, violations.csv}
         │  (config/control_plan.yaml)
-        ▼
-metrics: first-pass yield → rolling FPY (window) → p-chart SPC → Cpk   (metrics.py)
-        │
-        ▼
-data/marts/{daily_fpy, station_scorecard, pareto, findings}
-        │
-        ▼
+        ├──────────────────────────────────────────────┐
+        ▼                                              ▼
+metrics: first-pass yield → rolling FPY (window)   heterogeneous integration (integrate.py)
+         → p-chart SPC → Cpk        (metrics.py)   ERP  range join  ┐
+        │                                          MES  interval    ├─ config/system_crosswalk.yaml
+        ▼                                          QMS  serial key  ┘
+data/marts/{daily_fpy, station_scorecard,               │
+            pareto, findings}                           ▼
+        │                             data/marts/{wo_station_day, mes_shift_reconciliation}
+        ▼                             data/quality/{integration_report.json, orphans.csv}
 output/scorecard.html   (self-contained dashboard: KPIs, status table, 5 charts)
 
-ports:  src/pipeline_pyspark.py (Databricks)   ·   sql/*.sql (Spark SQL / DuckDB)
+sources: data/raw/systems/{erp_work_orders, mes_shift_log, qms_ncr}.csv
+ports:   src/pipeline_pyspark.py (Databricks)   ·   sql/*.sql (Spark SQL / DuckDB)
 ```
 
 ## Run it
@@ -87,11 +113,13 @@ ports:  src/pipeline_pyspark.py (Databricks)   ·   sql/*.sql (Spark SQL / DuckD
 ```bash
 pip install -r requirements.txt
 python -m src.generate_data      # write the synthetic dataset
+python -m src.generate_systems   # write the ERP / MES / QMS extracts
 python -m src.pipeline_pandas    # validate + build the marts (prints the scorecard)
+python -m src.integrate          # join ERP + MES + QMS to the floor (prints the breaks)
 python -m src.ai_triage          # root-cause triage -> data/marts/triage.json
 python -m src.scorecard          # render output/scorecard.html (static)
 python -m src.dashboard          # render output/dashboard.html (interactive)
-pytest -q                        # 13 tests: metrics, validation, SQL equivalence, triage
+pytest -q                        # 30 tests: metrics, validation, integration, SQL parity, triage
 ```
 
 Open `output/scorecard.html` in any browser.
@@ -100,15 +128,18 @@ Open `output/scorecard.html` in any browser.
 
 ```
 config/control_plan.yaml     machine-readable control plan (specs + DQ rules)
+config/system_crosswalk.yaml versioned key/grain/taxonomy crosswalk across 4 systems
 src/generate_data.py         seeded synthetic vision-inspection generator (3 lines)
+src/generate_systems.py      seeded ERP / MES / QMS extracts, each in its own dialect
 src/metrics.py               FPY, rolling FPY, frozen-baseline p-chart, Cpk (tested core)
 src/validation.py            control-plan-driven data-quality validation
+src/integrate.py             land -> validate -> conform -> join -> reconcile (ERP/MES/QMS)
 src/pipeline_pandas.py       reference end-to-end pipeline
 src/pipeline_pyspark.py      Databricks port of the same logic
 src/ai_triage.py             root-cause triage (drift / shift / false alarm)
 src/scorecard.py             static HTML scorecard
 src/dashboard.py             interactive line-flow dashboard + run-test simulator
-sql/                         window-function SQL + before/after tuning (+ README)
+sql/                         window-function SQL, 3-system joins, before/after tuning (+ README)
 snowflake/                   Snowflake parity SQL (same logic, warehouse engine)
 foundry/                     Foundry ontology + Workshop build spec + AIP Logic spec
 docs/                        ARCHITECTURE.md (stack diagram + same-logic table)

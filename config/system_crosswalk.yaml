@@ -1,0 +1,96 @@
+# System Crosswalk — reference data for joining three source systems that were
+# never designed to be joined.
+#
+# ERP, MES, and QMS each name the same physical things differently, key them
+# differently, and record them at a different grain. None of that is a bug: each
+# system is right inside its own boundary. The crosswalk is where the reconciling
+# happens, and it is versioned config (not buried in a query) so a quality
+# engineer can read it, review it, and see when it drifts.
+#
+# JD: "Pull from diverse hardware production systems (ERP, MES, QMS, inventory)"
+#     "heterogeneous system joins, window functions, query tuning"
+
+systems:
+  inspection:
+    label: Vision inspection stations (the floor)
+    extract: data/raw/inspection_events.csv
+    grain: one row per inspection event
+    dialect: snake_case, ISO-8601 timestamps
+    keys: [event_id, serial_number, station_id, part_number]
+
+  erp:
+    label: ERP — work orders
+    extract: data/raw/systems/erp_work_orders.csv
+    grain: one row per work order (covers a date RANGE on a line)
+    dialect: UPPER_SNAKE columns, MM/DD/YYYY dates, no timestamps at all
+    keys: [WORK_ORDER_NO, ITEM_NO, PROD_LINE]
+    joins_on: line + calendar date falling inside [SCHED_START_DT, SCHED_END_DT]  # non-equi range join
+
+  mes:
+    label: MES — shift production log
+    extract: data/raw/systems/mes_shift_log.csv
+    grain: one row per work center per SHIFT (not per event)
+    dialect: lower_snake, ISO timestamps, work-order number stored WITHOUT the "WO-" prefix
+    keys: [shift_id, work_center, wo_no]
+    joins_on: work center + event timestamp inside [shift_start_ts, shift_end_ts)  # interval join
+
+  qms:
+    label: QMS — nonconformance reports (NCR)
+    extract: data/raw/systems/qms_ncr.csv
+    grain: one row per NCR (sparse — only a fraction of failures raise one)
+    dialect: UPPER_SNAKE columns, serials lower-cased with the "SN-" prefix stripped
+    keys: [NCR_NO, SERIAL_NO]
+    joins_on: normalized serial number
+
+# --- Key mappings ------------------------------------------------------------
+# ERP PROD_LINE  ->  canonical line_id
+line:
+  LN_A: LINE-A
+  LN_B: LINE-B
+  LN_C: LINE-C
+
+# MES work_center  ->  canonical station_id
+work_center:
+  WC-01: S1
+  WC-02: S2
+  WC-03: S3
+  WC-04: S4
+  WC-05: S5
+  WC-06: S6
+  WC-07: S7
+  WC-08: S8
+  WC-09: S9
+
+# ERP ITEM_NO (item + revision)  ->  canonical part_number
+# Deliberately incomplete: ERP still carries work orders against the superseded
+# revision 1000-B. Those are reported as unmapped, NOT silently dropped — an
+# unmapped key is a finding for a human, not a row to throw away.
+item:
+  1000-C: PN-1000
+
+# QMS DEFECT_CATEGORY (human taxonomy)  ->  canonical defect_code (machine taxonomy)
+defect_category:
+  SOLDER: SLD-BRDG
+  MISSING COMPONENT: CMP-MISS
+  SURFACE FINISH: SRF-SCR
+  DIMENSIONAL: DIM-OOS
+  LABELING: LBL-ERR
+
+# --- Grain reconciliation ----------------------------------------------------
+# The MES production day is NOT the calendar day. Shift C starts at 22:00 and
+# runs to 06:00 the following morning; everything it produces belongs to the
+# production day it STARTED on. Joining MES to inspection data on CAST(ts AS DATE)
+# silently mis-assigns every event between midnight and 06:00.
+shifts:
+  production_day_rule: "the calendar date the shift STARTED on"
+  definitions:
+    - {code: A, start: "06:00", hours: 8}
+    - {code: B, start: "14:00", hours: 8}
+    - {code: C, start: "22:00", hours: 8}   # crosses midnight
+  interval: half-open — [shift_start_ts, shift_end_ts)
+
+# --- Reconciliation rules ----------------------------------------------------
+integration_rules:
+  serial_canonical_form: "upper-case, 'SN-' prefix stripped"   # SN-S3-00-0142 -> S3-00-0142
+  qty_variance_tolerance_pct: 5.0    # |MES units_completed - inspection events| beyond this is a finding
+  orphan_policy: report_and_flag     # never silently drop a row that fails to join

@@ -19,6 +19,7 @@ h2{font-size:14px;color:var(--accent);border-bottom:2px solid var(--accent);
   border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:8px;
   padding:16px 18px;transition:transform .08s,box-shadow .08s}
 .card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.card.wide{grid-column:1/-1}
 .card b{display:block;font-size:15px;margin-bottom:5px;color:var(--accent)}
 .card span{font-size:13px;color:var(--muted)}
 .prov{display:flex;align-items:flex-start;gap:10px;background:var(--panel);
@@ -45,7 +46,7 @@ a.repo{color:var(--accent);font-weight:600}
   <code>quality.station_scorecard</code>), produced by a <b>PySpark</b> lakehouse pipeline
   and verified cell-for-cell against a tested pandas reference implementation.</span></div>
 
-<h2>The two pages</h2>
+<h2>The pages</h2>
 <div class="cards">
   <a class="card" href="output/scorecard.html">
     <b>Station Scorecard →</b>
@@ -55,6 +56,12 @@ a.repo{color:var(--accent);font-weight:600}
     <b>Quality Intelligence Dashboard →</b>
     <span>Live line-flow view across three production lines. Click a station to drill into
     its SPC control chart, root-cause triage, and a test simulator you can run.</span></a>
+  <a class="card wide" href="output/integration.html">
+    <b>Heterogeneous System Integration →</b>
+    <span>The stations are only one source. ERP work orders, an MES shift log and QMS
+    nonconformance reports joined to the floor — three different join strategies, four
+    cross-system breaks no single system can see on its own, and the three raw extracts
+    shown as each system wrote them.</span></a>
 </div>
 
 <h2>What it does</h2>
@@ -70,6 +77,10 @@ a.repo{color:var(--accent);font-weight:600}
     cannot inflate its own limits and hide itself.</li>
   <li><b>Deterministic triage.</b> Classification is rule-based SPC/RCCA logic. The
     language model only writes the narrative afterward — it never makes the call.</li>
+  <li><b>Joins four systems that share no key.</b> ERP thinks in work-order date ranges,
+    MES in shifts, QMS in its own serial format and defect taxonomy, the stations in
+    events. A range join, an interval join and a normalized-key join reconcile them —
+    and every row that fails to join is reported, never dropped.</li>
 </ul>
 
 <h2>Where the logic runs</h2>
@@ -79,7 +90,8 @@ a.repo{color:var(--accent);font-weight:600}
   <li><b>Palantir Foundry</b> — a live slice: Pipeline Builder pipeline, a two-object
     ontology linked one-to-many, and a Workshop scorecard app.</li>
   <li><b>Snowflake</b> — SQL written for portability. Not executed.</li>
-  <li><b>Local</b> — the tested pandas reference implementation, 13 passing tests in CI.</li>
+  <li><b>Local</b> — the tested pandas reference implementation, 30 passing tests in CI,
+    including cell-for-cell SQL/Python parity on the cross-system joins.</li>
 </ul>
 
 <p class="note">This platform validates inspection <b>results</b> against a control plan —

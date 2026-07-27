@@ -24,16 +24,23 @@ jobs:
       - name: Generate deterministic dataset
         run: python -m src.generate_data
 
+      - name: Generate ERP / MES / QMS source-system extracts
+        run: python -m src.generate_systems
+
       - name: Run pipeline (validation -> SPC -> capability -> marts)
         run: python -m src.pipeline_pandas
+
+      - name: Integrate heterogeneous systems (ERP + MES + QMS joins)
+        run: python -m src.integrate
 
       - name: AI root-cause triage
         run: python -m src.ai_triage
 
-      - name: Build scorecard + interactive dashboard
+      - name: Build scorecard + interactive dashboard + integration page
         run: |
           python -m src.scorecard
           python -m src.dashboard
+          python -m src.integration_page
 
       - name: Run tests
         run: pytest -q

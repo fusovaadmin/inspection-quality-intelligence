@@ -22,8 +22,13 @@ output/*
 #    are diffed cell-for-cell and agree to 4.44e-16.
 # 2. output/*.html — the scorecard and dashboard are served by GitHub Pages,
 #    so they must be committed rather than built on demand.
+# 3. data/raw/systems/*.csv — the ERP / MES / QMS extracts (~166 KB total).
+#    Small, and the point of them is to be READ: the column casing, date
+#    formats, key formats and grain differences are the artifact. Fully
+#    deterministic, so regenerating them produces no diff churn.
 !data/marts/*.csv
 !output/*.html
+!data/raw/systems/*.csv
 
 # Python
 __pycache__/
