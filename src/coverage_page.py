@@ -98,6 +98,12 @@ h4 .sub-note{font-weight:400;color:var(--muted);font-size:11.5px}
   margin:8px 0 2px;font-weight:600}
 ol.rp{margin:0;padding-left:20px} ol.rp li{font-size:12.5px;margin:2px 0}
 .rp-n{font-size:11.5px;color:var(--muted);margin:10px 0 0;font-style:italic}
+.la{margin-top:9px;padding:9px 11px;border-radius:6px;background:#f4f7fa;
+  border-left:4px solid var(--accent);font-size:12.5px}
+.la.sys{border-left-color:var(--crit);background:#fdf5f5}
+.la b.v{display:inline-block;font-size:10px;letter-spacing:.04em;color:#fff;
+  background:var(--accent);border-radius:3px;padding:1px 6px;margin-right:6px}
+.la.sys b.v{background:var(--crit)}
 """
 
 STATE_DOT = {"COVERED": ("cov", "●"), "UNDECLARED_DETECTED": ("und", "▲"),
@@ -174,6 +180,27 @@ def _matrix(cov: pd.DataFrame, cond: pd.DataFrame) -> str:
             '<span><span class="dot na">·</span> not applicable</span></p>')
 
 
+def _look_across(f: dict) -> str:
+    """Extent of condition, rendered with the finding it belongs to.
+
+    A finding at one station is half an answer. This is the other half, and it
+    goes here rather than on its own page because the moment somebody wants it is
+    the moment they have just read the finding.
+    """
+    la = f.get("look_across")
+    if not la:
+        return ""
+    sys_cls = " sys" if la["verdict"] == "SYSTEMIC" else ""
+    peers = la.get("peer_stations") or ""
+    peer_html = ""
+    if peers and la["verdict"] != "SYSTEMIC":
+        peer_html = (f' <b>Also exposed:</b> {html.escape(peers.replace(";", ", "))}'
+                     f' (via {html.escape(str(la["propagates_with"]).replace("_", " "))}'
+                     f' {html.escape(str(la["asset_id"]))}).')
+    return (f'<div class="la{sys_cls}"><b class="v">{html.escape(la["verdict"].replace("_", " "))}</b>'
+            f'<b>Look across —</b> {html.escape(la["summary"])}{peer_html}</div>')
+
+
 def _findings(reps: list[dict]) -> str:
     """A finding with no action attached is a gate, not a system.
 
@@ -211,7 +238,7 @@ def _findings(reps: list[dict]) -> str:
                    f'<span class="where">{html.escape(f["severity"].replace("_", " "))}'
                    f'{" · " + html.escape(str(where)) if where and where != "-" else ""}</span>'
                    f'<div style="margin-top:6px">{html.escape(f["detail"])}</div>'
-                   f'{loop}</div>')
+                   f'{_look_across(f)}{loop}</div>')
     return "".join(out)
 
 

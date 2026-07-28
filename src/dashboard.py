@@ -61,6 +61,9 @@ def _selftest_by_station() -> dict:
              and f["id"] == "CONDITION_COVERAGE_LOST"}
     trend_finding = {f["station"]: f for f in rep["findings"]
                      if f["id"] == "TOOLING_TRENDING_TO_LIMIT"}
+    look = {f["station"]: f["look_across"] for f in rep["findings"]
+            if f.get("station") and f.get("look_across")
+            and f["id"] == "CONDITION_COVERAGE_LOST"}
 
     ic, mc, tc = cfg["imaging_check"], cfg["measurement_check"], cfg["tooling_check"]
     limits = {
@@ -131,6 +134,7 @@ def _selftest_by_station() -> dict:
             "plan": ({k: plans[st][k] for k in
                       ("failure_means", "probable_causes", "containment",
                        "corrective_actions", "owner")} if st in plans else None),
+            "lookAcross": look.get(st),
             "trendPlan": ({k: trend_finding[st][k] for k in
                            ("probable_causes", "corrective_actions", "owner")}
                           if st in trend_finding else None),
@@ -414,6 +418,17 @@ function selftestCard(s){
   const q=s.selftest;
   if(!q)return '';
   const c=q.condition==='ALERT'?COLOR.ALERT:(q.condition==='WATCH'?COLOR.WATCH:COLOR.OK);
+  const la=q.lookAcross;
+  const lookAcross=la
+    ? '<div class="rcabox"><div class="rcah">Look across - extent of condition ('+
+      la.verdict.replace('_',' ')+')</div><p style="font-size:12.5px;margin:0">'+
+      la.summary+'</p>'+
+      (la.peer_stations?'<p style="font-size:12.5px;margin:6px 0 0"><b>Also exposed:</b> '+
+        la.peer_stations.split(';').join(', ')+' - they share the '+
+        String(la.propagates_with).replace(/_/g,' ')+' '+la.asset_id+
+        ', so inspect them before they trip rather than after.</p>':'')+
+      '</div>'
+    : '';
   const fs=q.failingSets||[];
   const attribution=fs.length
     ? '<p style="margin:8px 0 0;padding:8px 10px;background:#fdf5f5;border-left:3px solid '+
@@ -464,7 +479,7 @@ function selftestCard(s){
     'bias and repeatability are measured rather than inferred. Which step fails decides which '+
     'inspections are lost: an imaging failure costs the visual checks and spares the measurement; '+
     'a measurement or tooling failure does the reverse.</p>'+
-    stepStrip(q)+lost+attribution+stCharts(q)+rca+wear+'</div>';
+    stepStrip(q)+lost+attribution+stCharts(q)+rca+wear+lookAcross+'</div>';
 }
 function lineFlow(lineId){
   const ss=D.stations.filter(s=>s.line===lineId).sort((a,b)=>a.order-b.order);

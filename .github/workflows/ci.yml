@@ -42,6 +42,9 @@ jobs:
       - name: Audit inspection coverage + position-dependent operating point
         run: python -m src.coverage
 
+      - name: Look across — extent of condition for every finding
+        run: python -m src.look_across
+
       - name: Build scorecard + interactive dashboard + integration + coverage pages
         run: |
           python -m src.scorecard

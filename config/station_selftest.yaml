@@ -272,6 +272,55 @@ reaction_plans:
     owner: Maintenance / Tooling
     escalate_after_days: 14
 
+# --- Asset topology, for look-across -----------------------------------------
+# WHY THIS EXISTS
+# ---------------
+# A finding at one station is half an answer. The other half is extent of
+# condition: where else does this same condition already exist? Answering it is
+# the difference between fixing an instance and closing a problem, and it is the
+# step that gets skipped when the tool only ever shows you one station at a time.
+#
+# It cannot be answered from inspection data alone, because the thing that
+# propagates a fault is usually NOT the station. A robot arm serving three
+# stations carries its tool-centre-point error to all three. An illuminator model
+# with a bad production batch dims everywhere it was fitted. A fixture design
+# reused across a line wears the same way on every copy of it.
+#
+# So the topology has to be declared. This is the map of what is shared, and it
+# is versioned config a human owns for the same reason the crosswalk is: it is
+# reference data, not logic, and it goes stale when the floor changes.
+#
+# PLACEHOLDER topology. In a real plant this comes out of the asset register or
+# the maintenance system, not out of a YAML file somebody typed.
+asset_topology:
+  stations:
+    S1: {robot: ROB-A1, illuminator_model: ILL-100, fixture_design: FIX-STD-A, coupon_lot: LOT-2026-03}
+    S2: {robot: ROB-A1, illuminator_model: ILL-100, fixture_design: FIX-STD-A, coupon_lot: LOT-2026-03}
+    S3: {robot: ROB-A2, illuminator_model: ILL-220, fixture_design: FIX-STD-B, coupon_lot: LOT-2026-03}
+    S4: {robot: ROB-B1, illuminator_model: ILL-100, fixture_design: FIX-STD-A, coupon_lot: LOT-2026-03}
+    S5: {robot: ROB-B1, illuminator_model: ILL-100, fixture_design: FIX-STD-A, coupon_lot: LOT-2026-03}
+    S6: {robot: ROB-B2, illuminator_model: ILL-220, fixture_design: FIX-STD-B, coupon_lot: LOT-2026-03}
+    S7: {robot: ROB-C1, illuminator_model: ILL-100, fixture_design: FIX-STD-A, coupon_lot: LOT-2026-03}
+    S8: {robot: ROB-C1, illuminator_model: ILL-100, fixture_design: FIX-STD-A, coupon_lot: LOT-2026-03}
+    S9: {robot: ROB-C2, illuminator_model: ILL-220, fixture_design: FIX-STD-B, coupon_lot: LOT-2026-03}
+
+  # Which shared asset each kind of failure travels with. This is the whole
+  # mechanism: a worn gripper is a property of the ROBOT, not of the station it
+  # happened to be serving when somebody noticed.
+  propagates_with:
+    imaging_check:            illuminator_model
+    measurement_check:        robot
+    tooling_check__fixture:   fixture_design
+    tooling_check__eoat:      robot
+
+look_across:
+  enabled: true
+  # A peer inside this fraction of its own limit is "approaching" — near enough
+  # that the same condition is plausibly already developing there.
+  approaching_fraction_of_limit: 0.60
+  # A control-plan gap present at every station is not nine local problems.
+  systemic_if_fraction_of_stations: 1.0
+
 # --- Monitoring rule ---------------------------------------------------------
 # Same discipline as the SPC WATCH/ALERT split: persistence, not one reading.
 # One failed self-test is a coupon that needed cleaning. Three in a row is a cell.
