@@ -47,8 +47,43 @@ and real quality problems are baked in so the analytics have something to catch.
   feeding the metrics is provably trustworthy.
 - **Quality methods, in code** — first-pass yield, **frozen-baseline p-chart SPC**
   (Phase I → II), and **process capability (Cpk)**.
-- **Software rigor on data code** — unit + SQL-equivalence + triage tests and a
-  GitHub Actions pipeline that regenerates data, runs the pipeline, and gates on tests.
+- **Inspection coverage audit** (`src/coverage.py`) — is the control plan looking
+  for what the floor actually produces? One failure mode is detected at all nine
+  stations and assigned to none, so it has no spec and no reaction plan. Another is
+  on three stations' lists and has never once been found, which is reported as an
+  **open question** rather than counted as coverage: the data cannot say whether it
+  never happens or the station cannot see it.
+- **Position-dependent operating point** (`config/cost_model.yaml`) — a false
+  reject costs more the further down the line it happens; an escape costs whatever
+  it takes to catch it wherever it is caught next. Costs are **relative value
+  units, never currency**, and every conclusion is **swept across the assumption
+  ranges** before it is reported. One does not survive: the intuitive rule that
+  stations should get less aggressive downstream holds in 6 of 81 combinations,
+  and **a test asserts that claim fails** so tuning the assumptions until the story
+  is tidy turns the suite red instead of quiet.
+- **Cell self-test** (`config/station_selftest.yaml`) — a robot checks its home
+  position before trusting its coordinates; before judging any part, each station
+  measures a **known reference coupon** and inspects its **own tooling**. Because
+  the answer is known in advance, bias and repeatability are measured rather than
+  inferred. Which step fails decides which inspections are lost, and they point
+  opposite ways: failed imaging costs the visual checks and spares the
+  measurement; failed measurement or tooling does the reverse. **Fixture and
+  end-of-arm tooling are separate sets**, because both push on the same reading and
+  only inspecting them separately says which one moved.
+- **Look across — extent of condition** (`src/look_across.py`) — a finding at one
+  station is half an answer. What propagates a fault is usually **not the station**:
+  a worn gripper travels with the **robot**, so every station on that arm is exposed
+  even without a finding of its own. A gap present at every station is reported
+  **systemic** — one problem with the plan, not nine local ones.
+- **Loop closure** — every finding ends in probable causes, containment, corrective
+  actions and an owner, looked up from reviewed config. Attribution is
+  **deterministic**; no model chooses a cause.
+- **Software rigor on data code** — unit + SQL-equivalence + triage + coverage +
+  self-test tests and a GitHub Actions pipeline that regenerates data, runs the
+  pipeline, and gates on tests. Several tests exist to enforce honesty rather than
+  correctness: one asserts no currency appears in the cost model, one scans every
+  finding for failure-prediction language, and one asserts this stage never writes
+  to the Databricks-produced marts.
 - **Interactive operator dashboard** (`output/dashboard.html`) — line-flow tabs
   (LINE-A/B/C), per-station drill-down, an AI triage panel, and a live "run
   inspection test" simulator that drops a batch onto the control chart.
@@ -119,7 +154,8 @@ python -m src.integrate          # join ERP + MES + QMS to the floor (prints the
 python -m src.ai_triage          # root-cause triage -> data/marts/triage.json
 python -m src.scorecard          # render output/scorecard.html (static)
 python -m src.dashboard          # render output/dashboard.html (interactive)
-pytest -q                        # 30 tests: metrics, validation, integration, SQL parity, triage
+pytest -q                        # 93 tests: metrics, validation, integration, SQL parity,
+                                 #           triage, coverage, self-test, look-across
 ```
 
 Open `output/scorecard.html` in any browser.
