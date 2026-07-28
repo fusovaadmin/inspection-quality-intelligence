@@ -1,0 +1,110 @@
+# Cost Model — position-dependent inspection economics.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# The cost of being wrong at an inspection station is not constant along a line.
+# Rejecting a good unit at the first station throws away one station's worth of
+# value. Rejecting the same unit at the last station throws away everything that
+# was built into it since. Meanwhile a defect that ESCAPES an early station gets
+# more value built on top of it before anyone finds it.
+#
+# Those two costs move in opposite directions as you walk down the line. That is
+# why one detection threshold cannot be correct at every station: upstream, an
+# escape is far more expensive than a false reject, so you buy recall cheaply.
+# Downstream, a false reject costs nearly as much as an escape, and recall and
+# precision have to be traded against each other rather than one dominating.
+#
+# UNITS: RELATIVE VALUE UNITS (VU), NOT CURRENCY.
+# ----------------------------------------------
+# Every figure below is expressed as a multiple of the value in a unit when it
+# arrives at the FIRST inspection position. No dollar amounts appear anywhere in
+# this model, because a dollar amount would imply a costing study that has not
+# been done. Ratios are what the conclusion depends on, and ratios are what a
+# plant can supply quickly from its own routing and scrap data.
+#
+# EVERY NUMBER HERE IS AN ASSUMPTION OWNED BY A HUMAN.
+# ---------------------------------------------------
+# This is versioned, reviewable config for exactly the same reason the control
+# plan and the system crosswalk are: the mapping from engineering judgment to
+# pipeline behaviour must be readable by the quality engineer who owns it, not
+# buried in code. Each assumption carries a `basis` field. Where the basis says
+# PLACEHOLDER, the number has NOT been derived from production data and must be
+# replaced before any of this drives a real decision.
+#
+# Because the inputs are assumptions, src/coverage.py does not report the
+# break-even exchange rates on their own. It also sweeps them (see `sensitivity`
+# below) and reports whether the ORDERING of the stations survives the sweep.
+# A conclusion that holds across the plausible range is worth acting on; one that
+# flips inside it is an artifact of the assumptions and is reported as such.
+
+version: 1
+owner: manufacturing_quality_engineering
+units:
+  symbol: VU
+  definition: >-
+    One value unit is the material plus labour value embodied in a unit as it
+    ARRIVES at sequence position 1. All other values are multiples of it.
+
+# --- Line sequence -----------------------------------------------------------
+# Which stations a unit passes through, in order. Position is 1-based and is the
+# only thing that makes a station "upstream" or "downstream".
+line_sequence:
+  LINE-A: [S1, S2, S3]
+  LINE-B: [S4, S5, S6]
+  LINE-C: [S7, S8, S9]
+
+# --- Value accumulation ------------------------------------------------------
+# VU embodied in a unit when it ARRIVES at each sequence position, and at the
+# integration/final-test point after the last station.
+value_at_position:
+  1: 1.0
+  2: 2.6
+  3: 4.2
+value_at_final_test: 6.0
+basis_value_at_position: >-
+  PLACEHOLDER. Assumes roughly even value-add per station with a step at final
+  integration. In a real plant this comes straight from the routing: cumulative
+  standard cost at each operation. Replace before use.
+
+# --- Cost of a false reject (rejecting a good unit) --------------------------
+# You do not usually scrap a falsely-rejected unit; you disposition it. The cost
+# is the handling plus the fraction of embodied value lost to rework or scrap.
+false_reject:
+  rework_fraction_of_embodied_value: 0.35
+  fixed_handling_vu: 0.20
+basis_false_reject: >-
+  PLACEHOLDER. rework_fraction stands in for the blended cost of the MRB path —
+  some units are reworked cheaply, some are scrapped outright. fixed_handling
+  covers the paperwork, move, and queue time a rejected unit incurs regardless
+  of its value. Both are recoverable from scrap/rework records. Replace before use.
+
+# --- Cost of an escape (passing a defective unit) ----------------------------
+# A defect that gets past a station is discovered at the next station assigned to
+# detect that mode; if no downstream station is assigned, it reaches final test;
+# if final test cannot see it either, it reaches the customer.
+escape:
+  teardown_multiplier: 1.0
+  final_test_penalty_vu: 1.5
+  customer_penalty_vu: 12.0
+basis_escape: >-
+  PLACEHOLDER, and the customer penalty is the least defensible number in this
+  file. teardown_multiplier says you lose the embodied value at the point of
+  discovery. final_test_penalty covers disassembly and retest. customer_penalty
+  is a stand-in for containment, return logistics, CAPA and the field action —
+  it is a policy number a quality director sets, not a number a pipeline can
+  measure. It is swept hardest in the sensitivity analysis for that reason.
+
+# --- Sensitivity -------------------------------------------------------------
+# The ranges over which each assumption is swept. The reported conclusion is not
+# "here is the exchange rate" but "here is the exchange rate, and here is whether
+# the station ordering survives every combination in these ranges".
+sensitivity:
+  enabled: true
+  sweep:
+    rework_fraction_of_embodied_value: [0.15, 0.35, 0.60]
+    fixed_handling_vu: [0.05, 0.20, 0.50]
+    final_test_penalty_vu: [0.5, 1.5, 3.0]
+    customer_penalty_vu: [3.0, 12.0, 40.0]
+  # The claim under test: an escape costs strictly more, relative to a false
+  # reject, at an upstream position than at a downstream one on the same line.
+  monotonicity_claim: exchange_rate_decreases_with_position

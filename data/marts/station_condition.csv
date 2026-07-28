@@ -1,0 +1,28 @@
+line_id,station_id,mode,detection_basis,gated_by,cause,datamatrix_grade,ref_sharpness_score,ref_repeatability_mm,locator_wear_mm,days_below,longest_run_below,first_day_below,condition,effective_coverage
+LINE-A,S1,DIM-OOS,geometry,"measurement, tooling",-,3.84,0.9438,0.00601,0.02071,0,0,,OK,True
+LINE-A,S2,CMP-MISS,appearance_high_contrast,imaging,-,3.8,0.9431,0.02449,0.1282,0,0,,OK,True
+LINE-A,S2,DIM-OOS,geometry,"measurement, tooling",measurement,3.8,0.9431,0.02449,0.1282,30,30,2026-05-01,ALERT,False
+LINE-A,S2,SLD-BRDG,appearance_high_contrast,imaging,-,3.8,0.9431,0.02449,0.1282,0,0,,OK,True
+LINE-A,S3,CMP-MISS,appearance_high_contrast,imaging,-,3.81,0.9481,0.00605,0.02002,0,0,,OK,True
+LINE-A,S3,DIM-OOS,geometry,"measurement, tooling",-,3.81,0.9481,0.00605,0.02002,0,0,,OK,True
+LINE-A,S3,SEAL-GAP,appearance_low_contrast,imaging,-,3.81,0.9481,0.00605,0.02002,0,0,,OK,True
+LINE-A,S3,SLD-BRDG,appearance_high_contrast,imaging,-,3.81,0.9481,0.00605,0.02002,0,0,,OK,True
+LINE-A,S3,SRF-SCR,appearance_low_contrast,imaging,-,3.81,0.9481,0.00605,0.02002,0,0,,OK,True
+LINE-B,S4,DIM-OOS,geometry,"measurement, tooling",-,3.83,0.9446,0.00602,0.02004,0,0,,OK,True
+LINE-B,S5,CMP-MISS,appearance_high_contrast,imaging,-,3.82,0.9391,0.0066,0.02083,0,0,,OK,True
+LINE-B,S5,DIM-OOS,geometry,"measurement, tooling",-,3.82,0.9391,0.0066,0.02083,0,0,,OK,True
+LINE-B,S5,SLD-BRDG,appearance_high_contrast,imaging,-,3.82,0.9391,0.0066,0.02083,0,0,,OK,True
+LINE-B,S6,CMP-MISS,appearance_high_contrast,imaging,imaging,3.79,0.9402,0.00604,0.0212,2,2,2026-05-01,WATCH,True
+LINE-B,S6,DIM-OOS,geometry,"measurement, tooling",-,3.79,0.9402,0.00604,0.0212,0,0,,OK,True
+LINE-B,S6,SEAL-GAP,appearance_low_contrast,imaging,imaging,3.79,0.9402,0.00604,0.0212,2,2,2026-05-01,WATCH,True
+LINE-B,S6,SLD-BRDG,appearance_high_contrast,imaging,imaging,3.79,0.9402,0.00604,0.0212,2,2,2026-05-01,WATCH,True
+LINE-B,S6,SRF-SCR,appearance_low_contrast,imaging,imaging,3.79,0.9402,0.00604,0.0212,2,2,2026-05-01,WATCH,True
+LINE-C,S7,DIM-OOS,geometry,"measurement, tooling",-,3.81,0.9465,0.00605,0.02037,0,0,,OK,True
+LINE-C,S8,CMP-MISS,appearance_high_contrast,imaging,-,3.85,0.939,0.02116,0.02088,0,0,,OK,True
+LINE-C,S8,DIM-OOS,geometry,"measurement, tooling",measurement + tooling/eoat,3.85,0.939,0.02116,0.02088,25,25,2026-05-06,ALERT,False
+LINE-C,S8,SLD-BRDG,appearance_high_contrast,imaging,-,3.85,0.939,0.02116,0.02088,0,0,,OK,True
+LINE-C,S9,CMP-MISS,appearance_high_contrast,imaging,imaging,1.36,0.8289,0.00635,0.02079,38,38,2026-04-23,ALERT,False
+LINE-C,S9,DIM-OOS,geometry,"measurement, tooling",-,1.36,0.8289,0.00635,0.02079,0,0,,OK,True
+LINE-C,S9,SEAL-GAP,appearance_low_contrast,imaging,imaging,1.36,0.8289,0.00635,0.02079,38,38,2026-04-23,ALERT,False
+LINE-C,S9,SLD-BRDG,appearance_high_contrast,imaging,imaging,1.36,0.8289,0.00635,0.02079,38,38,2026-04-23,ALERT,False
+LINE-C,S9,SRF-SCR,appearance_low_contrast,imaging,imaging,1.36,0.8289,0.00635,0.02079,38,38,2026-04-23,ALERT,False

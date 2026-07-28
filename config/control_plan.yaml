@@ -42,3 +42,59 @@ spc:
   sigma: 3                    # 3-sigma control limits
   rolling_window_days: 7      # trailing window for rolling first-pass yield
   baseline_days: 21           # in-control baseline for frozen Phase I limits
+
+# --- Inspection coverage -----------------------------------------------------
+# WHAT THIS DECLARES, AND WHAT IT DELIBERATELY DOES NOT.
+#
+# `features:` above is the part of the control plan with teeth: a characteristic,
+# a spec window, a measurement method, a sample size, a capability floor, and a
+# reaction plan. Exactly one feature has all of that (F1).
+#
+# This block is weaker on purpose, because it mirrors how control plans are
+# actually written. It declares which failure MODES each station is assigned to
+# detect. Declaring a mode here is not the same as specifying it: a declared mode
+# with no `feature_ref` has no accept criterion and no reaction plan, so a
+# detection produces an event and nothing else happens.
+#
+# src/coverage.py audits three things against this block:
+#   1. modes OBSERVED on the floor that no station was assigned to detect
+#      -> nobody owns them; there is no spec and no reaction plan
+#   2. modes DECLARED here that produce zero detections over the window
+#      -> either the mode never occurs, or the station cannot physically see it.
+#         Those are very different problems and the data alone cannot separate
+#         them. Reported as an open question, not as a pass.
+#   3. modes whose FIRST declared inspection point sits late in the line
+#      -> value is accumulating before anyone is assigned to look
+#
+# Station sequence position is NOT repeated here. It lives in
+# config/cost_model.yaml under `line_sequence`, which is its single source of truth.
+inspection_coverage:
+  # `detection_basis` says WHAT KIND of measurement finds this mode. It is not
+  # cosmetic: it decides how the mode responds when the station's conditions
+  # drift. A geometric measurement survives an illumination change that quietly
+  # destroys a low-contrast surface check, so a station can lose part of its
+  # coverage while every yield and capability number it reports stays healthy.
+  # The limits per class live in config/station_environment.yaml.
+  modes:
+    DIM-OOS:  {label: "Dimensional out of spec",  feature_ref: F1,  detection_basis: geometry}
+    SLD-BRDG: {label: "Solder bridging",          feature_ref: null, detection_basis: appearance_high_contrast}
+    CMP-MISS: {label: "Missing component",        feature_ref: null, detection_basis: appearance_high_contrast}
+    SRF-SCR:  {label: "Surface scratch",          feature_ref: null, detection_basis: appearance_low_contrast}
+    LBL-ERR:  {label: "Label / marking error",    feature_ref: null, detection_basis: appearance_high_contrast}
+    SEAL-GAP: {label: "Seal gap at bond line",    feature_ref: null, detection_basis: appearance_low_contrast}
+
+  # Modes each station is ASSIGNED to detect. Anything a station reports that is
+  # not on its list is a detection outside the plan.
+  stations:
+    S1: {detects: [DIM-OOS]}
+    S2: {detects: [DIM-OOS, SLD-BRDG, CMP-MISS]}
+    S3: {detects: [DIM-OOS, SLD-BRDG, CMP-MISS, SRF-SCR, SEAL-GAP]}
+    S4: {detects: [DIM-OOS]}
+    S5: {detects: [DIM-OOS, SLD-BRDG, CMP-MISS]}
+    S6: {detects: [DIM-OOS, SLD-BRDG, CMP-MISS, SRF-SCR, SEAL-GAP]}
+    S7: {detects: [DIM-OOS]}
+    S8: {detects: [DIM-OOS, SLD-BRDG, CMP-MISS]}
+    S9: {detects: [DIM-OOS, SLD-BRDG, CMP-MISS, SRF-SCR, SEAL-GAP]}
+
+  # A mode reaching this point unexamined is found by the customer.
+  final_test_detects: [DIM-OOS, CMP-MISS, SEAL-GAP]

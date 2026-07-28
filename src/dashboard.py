@@ -27,6 +27,117 @@ OUT = ROOT / "output" / "dashboard.html"
 RECENT_DAYS = 14
 
 
+def _selftest_by_station() -> dict:
+    """Per-station cell self-test, condition, wear trend and reaction plan.
+
+    Everything here is produced by src/coverage.py; this only reshapes it for the
+    station drill-down. The dashboard is where a quality engineer actually lives,
+    so the question "can this station still do its job?" belongs next to the
+    control chart rather than on a separate page nobody has open.
+
+    Returns {} if the self-test artefacts are absent, so the dashboard still
+    builds when only the SPC half of the pipeline has run.
+    """
+    from .coverage import (ENV_MODEL, ENV_TELEMETRY, evaluate_selftest, load_yaml,
+                           mode_label)
+    rep_path = ROOT / "data" / "quality" / "coverage_report.json"
+    cond_path = MARTS / "station_condition.csv"
+    if not (ENV_TELEMETRY.exists() and cond_path.exists() and rep_path.exists()):
+        return {}
+
+    plan = load_control_plan()
+    cfg = load_yaml(ENV_MODEL)
+    rep = json.loads(rep_path.read_text(encoding="utf-8"))
+    raw = pd.read_csv(ENV_TELEMETRY).sort_values(["station_id", "production_day"])
+    ev = evaluate_selftest(cfg, raw)
+    cond = pd.read_csv(cond_path)
+    wear_rows = (rep.get("wear_trending") or {}).get("stations", [])
+    wear = {}
+    for w in wear_rows:
+        if w.get("trend_detected"):
+            wear.setdefault(w["station_id"], []).append(w)
+    plans = {f["station"]: f for f in rep["findings"]
+             if f.get("station") and f.get("probable_causes")
+             and f["id"] == "CONDITION_COVERAGE_LOST"}
+    trend_finding = {f["station"]: f for f in rep["findings"]
+                     if f["id"] == "TOOLING_TRENDING_TO_LIMIT"}
+
+    ic, mc, tc = cfg["imaging_check"], cfg["measurement_check"], cfg["tooling_check"]
+    limits = {
+        "grade": {"col": "datamatrix_grade", "v": ic["datamatrix_grade"]["min"],
+                  "above": False, "name": "Reference barcode grade", "unit": ""},
+        "sharp": {"col": "ref_sharpness_score", "v": ic["sharpness_score"]["min"],
+                  "above": False, "name": "Sharpness on the coupon", "unit": ""},
+        "bright": {"col": "ref_brightness_pct",
+                   "v": ic["brightness_pct_of_reference"]["min"], "above": False,
+                   "name": "Brightness vs reference", "unit": "%"},
+        "repeat": {"col": "ref_repeatability_mm", "v": mc["repeatability_mm"]["max"],
+                   "above": True, "name": "Measurement repeatability", "unit": " mm"},
+    }
+    # Every measure of every tooling set gets its own trace, labelled with the set
+    # it belongs to. "Tooling wear" as one number would hide which one moved.
+    for sname, spec in (tc.get("sets") or {}).items():
+        short = "Fixture" if sname == "fixture" else "EOAT"
+        for col, m in spec["measures"].items():
+            limits[f"{sname}_{col}"] = {
+                "col": col, "v": m["max"], "above": True,
+                "name": f"{short}: {m.get('name', col)}", "unit": " mm"}
+
+    out = {}
+    for st, g in ev.groupby("station_id"):
+        c = cond[cond.station_id == st]
+        lost = c[~c.effective_coverage]
+        worst = (c.loc[c.longest_run_below.idxmax()] if not c.empty else None)
+        last = g.iloc[-1]
+        ws = wear.get(st) or []
+        # Severity order, not alphabetical order — string max() would rank
+        # "WATCH" above "OK" above "ALERT", which is exactly backwards.
+        rank = {"ALERT": 2, "WATCH": 1, "OK": 0}
+        worst_cond = ("OK" if c.empty else
+                      max(c.condition.unique(), key=lambda x: rank.get(x, 0)))
+        out[st] = {
+            "condition": worst_cond,
+            "cause": (str(worst.cause) if worst is not None else "-"),
+            "toolingSets": {k: v["label"] for k, v in
+                            ((cfg.get("tooling_check") or {}).get("sets") or {}).items()},
+            "failingSets": ([k for k in ((cfg.get("tooling_check") or {}).get("sets") or {})
+                             if f"tooling/{k}" in str(worst.cause)]
+                            if worst is not None else []),
+            "daysOut": (int(worst.longest_run_below) if worst is not None else 0),
+            "firstOut": (None if worst is None or pd.isna(worst.first_day_below)
+                         else str(worst.first_day_below)),
+            "steps": {"imaging": bool(last.imaging_ok),
+                      "measurement": bool(last.measurement_ok),
+                      "tooling": bool(last.tooling_ok)},
+            "lost": [{"code": m, "label": mode_label(m, plan)}
+                     for m in sorted(lost["mode"].unique())],
+            "series": {k: [round(float(v), 5) for v in g[spec["col"]].tolist()]
+                       for k, spec in limits.items()},
+            "limits": {k: {"v": spec["v"], "above": spec["above"],
+                           "name": spec["name"], "unit": spec["unit"]}
+                       for k, spec in limits.items()},
+            "wear": [{"set": w.get("set_label"), "measure": w.get("measure_name"),
+                      "latest": w.get("latest_wear_mm"), "limit": w.get("limit_mm"),
+                      "rate": w.get("wear_rate_mm_per_1k_units"),
+                      "r1": w.get("rate_first_half"), "r2": w.get("rate_second_half"),
+                      "accel": bool(w.get("accelerating")),
+                      "ratio": w.get("acceleration_ratio"),
+                      "units": w.get("projected_units_to_limit"),
+                      "days": w.get("projected_days_to_limit"),
+                      "label": w.get("projection_label")}
+                     for w in ws
+                     if w.get("projected_units_to_limit") is not None
+                     and w.get("within_limit")] or None,
+            "plan": ({k: plans[st][k] for k in
+                      ("failure_means", "probable_causes", "containment",
+                       "corrective_actions", "owner")} if st in plans else None),
+            "trendPlan": ({k: trend_finding[st][k] for k in
+                           ("probable_causes", "corrective_actions", "owner")}
+                          if st in trend_finding else None),
+        }
+    return out
+
+
 def _build_data() -> dict:
     plan = load_control_plan()
     feat = plan["features"][0]
@@ -41,6 +152,8 @@ def _build_data() -> dict:
 
     fp = raw[(raw.inspection_pass == 1) & raw.feature_dim_mm.between(lsl - 5, usl + 5)].copy()
     cutoff = fp.ts.max().floor("D") - pd.Timedelta(days=RECENT_DAYS)
+
+    selftest = _selftest_by_station()
 
     stations = []
     for r in sc.sort_values("station_id").itertuples():
@@ -64,6 +177,7 @@ def _build_data() -> dict:
                           g.date, g.defect_rate, g.ucl, g.lcl, g.pbar, g.fpy,
                           g.rolling_fpy, g.out_of_control)],
             "triage": triage_by_id.get(r.station_id, {}),
+            "selftest": selftest.get(r.station_id),
         })
 
     overall_fpy = 1 - sc.defects.sum() / sc.n_first_pass.sum()
@@ -74,7 +188,10 @@ def _build_data() -> dict:
                  "dateMax": daily.date.max().strftime("%Y-%m-%d"),
                  "overallFpy": round(float(overall_fpy), 4),
                  "nAlert": int((sc.status == "ALERT").sum()),
-                 "dqScore": triage["data_quality"]["dq_score"]},
+                 "dqScore": triage["data_quality"]["dq_score"],
+                 "nSelftest": sum(1 for v in selftest.values()
+                                  if v["condition"] == "ALERT"),
+                 "hasSelftest": bool(selftest)},
         "stations": stations,
         "pareto": [{"code": c, "count": int(n), "cum": float(cp)}
                    for c, n, cp in zip(pareto.defect_code, pareto["count"], pareto.cum_pct)],
@@ -140,6 +257,24 @@ ul.acts{margin:6px 0 0 0;padding-left:18px}ul.acts li{font-size:13px;margin:3px 
 svg{max-width:100%;height:auto}.hint{font-size:12px;color:var(--muted)}
 table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid var(--line);padding:5px 8px;text-align:center}
 th{background:var(--accent);color:#fff}
+.stbadge{font-size:10px;font-weight:700;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+.step{flex:1;min-width:118px;border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:#fff}
+.step.no{border-color:var(--crit);background:#fdf5f5}
+.step .sn{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.step .sv{font-size:12px;font-weight:700;margin-top:2px}
+.step.ok .sv{color:var(--good)} .step.no .sv{color:var(--crit)}
+.stgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:8px}
+@media(max-width:700px){.stgrid{grid-template-columns:1fr 1fr}}
+.stc{border:1px solid var(--line);border-radius:6px;padding:6px 7px 2px}
+.stc.bad{border-color:var(--crit);background:#fdf5f5}
+.stc .sh{display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:1px}
+.stc .sh b{font-weight:600}
+.stc .sh span{color:var(--muted);font-variant-numeric:tabular-nums}
+.rcabox{border-top:1px solid var(--line);margin-top:10px;padding-top:9px}
+.rcah{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;margin:7px 0 2px}
+ol.rca{margin:0;padding-left:18px}ol.rca li{font-size:12.5px;margin:2px 0}
+.disc{font-size:11.5px;color:var(--muted);font-style:italic;margin:8px 0 0}
 </style></head><body><div class="wrap">
 <div class="topbar">
   <div class="titleblock">
@@ -216,11 +351,120 @@ const COLOR2=i=>['#0f3d2e','#2a6f52','#5a9b7f','#8ac0a8'][i%4];
 function node(st){
   const flag = st.status!=='OK'?`<span class="flag" style="background:${COLOR[st.status]}">${st.status==='ALERT'?'🚩 ALERT':'⚠ WATCH'}</span>`:'';
   return `<div class="node" style="border-left-color:${COLOR[st.status]}" onclick="go('${st.line}/${st.id}')">
-    <div class="top"><span class="sid"><span class="dot" style="background:${COLOR[st.status]}"></span>Station ${st.id}</span>${flag}</div>
+    <div class="top"><span class="sid"><span class="dot" style="background:${COLOR[st.status]}"></span>Station ${st.id}</span>${flag}${stBadge(st)}</div>
     ${sparkline(st)}
     <div class="kv"><span>FPY</span><b>${pct(st.fpy)}</b></div>
     <div class="kv"><span>Cpk (recent)</span><b>${st.cpk_recent}</b></div>
     <div class="kv"><span>SPC pts</span><b>${st.spc}</b></div></div>`;
+}
+
+/* ---- cell self-test --------------------------------------------------------
+   A robot checks its home position before it trusts its own coordinates. Same
+   question here: can this station still do the job it was accepted to do? It
+   lives next to the control chart because that is where the engineer already
+   is, not on a separate page nobody has open. ----------------------------- */
+function stSpark(vals,limit,aboveBad,w,h){
+  w=w||150;h=h||38;if(!vals||!vals.length)return '';
+  let lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
+  if(limit!=null){lo=Math.min(lo,limit);hi=Math.max(hi,limit);}
+  const pad=(hi-lo)*0.15||0.01;lo-=pad;hi+=pad;
+  const n=vals.length,sx=i=>2+i*(w-4)/Math.max(1,n-1),sy=v=>h-2-(v-lo)*(h-4)/(hi-lo);
+  let segs=[],cur=[],bc=null;
+  vals.forEach(function(v,i){
+    const bad=limit!=null&&(aboveBad?v>limit:v<limit);
+    if(bc===null||bad===bc){cur.push([sx(i),sy(v)]);}
+    else{segs.push([bc,cur.concat([[sx(i),sy(v)]])]);cur=[[sx(i),sy(v)]];}
+    bc=bad;});
+  segs.push([bc,cur]);
+  const paths=segs.filter(x=>x[1].length>1).map(function(pair){
+    const pts=pair[1].map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ');
+    return '<polyline points="'+pts+'" fill="none" stroke="'+(pair[0]?COLOR.ALERT:COLOR.OK)+'" stroke-width="1.6"/>';
+  }).join('');
+  const ly=limit==null?'':'<line x1="0" y1="'+sy(limit).toFixed(1)+'" x2="'+w+'" y2="'+sy(limit).toFixed(1)+'" stroke="'+COLOR.ALERT+'" stroke-width="1" stroke-dasharray="3,3" opacity=".75"/>';
+  return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none">'+ly+paths+'</svg>';
+}
+function stBadge(st){
+  const q=st.selftest;
+  if(!q||q.condition==='OK')return '';
+  const c=q.condition==='ALERT'?COLOR.ALERT:COLOR.WATCH;
+  return '<span class="stbadge" style="background:'+c+'" title="Cell self-test: '+q.cause+'">SELF-TEST '+q.condition+'</span>';
+}
+function stepStrip(q){
+  function step(k,n){
+    const ok=q.steps[k];
+    return '<div class="step '+(ok?'ok':'no')+'"><div class="sn">'+n+'</div><div class="sv">'+(ok?'GO':'NO-GO')+'</div></div>';
+  }
+  return '<div class="steps">'+step('imaging','1 - Imaging')+step('measurement','2 - Measurement')+
+         step('tooling','3 - Tooling')+
+         '<div class="step ok"><div class="sn">4 - Production</div><div class="sv">judged</div></div></div>';
+}
+function stCharts(q){
+  return '<div class="stgrid">'+Object.keys(q.series).map(function(k){
+    const L=q.limits[k],v=q.series[k],last=v[v.length-1];
+    const bad=L.above?last>L.v:last<L.v;
+    return '<div class="stc'+(bad?' bad':'')+'"><div class="sh"><b>'+L.name+'</b><span>'+
+      Number(last).toPrecision(3)+L.unit+'</span></div>'+stSpark(v,L.v,L.above)+'</div>';
+  }).join('')+'</div>';
+}
+function rcaList(t,items){
+  if(!items||!items.length)return '';
+  return '<div class="rcah">'+t+'</div><ol class="rca">'+items.map(i=>'<li>'+i+'</li>').join('')+'</ol>';
+}
+function selftestCard(s){
+  const q=s.selftest;
+  if(!q)return '';
+  const c=q.condition==='ALERT'?COLOR.ALERT:(q.condition==='WATCH'?COLOR.WATCH:COLOR.OK);
+  const fs=q.failingSets||[];
+  const attribution=fs.length
+    ? '<p style="margin:8px 0 0;padding:8px 10px;background:#fdf5f5;border-left:3px solid '+
+      COLOR.ALERT+';border-radius:0 4px 4px 0"><b>Attribution:</b> the <b>'+
+      fs.map(k=>q.toolingSets[k]).join(' and ')+'</b> is out of limit — and the '+
+      Object.keys(q.toolingSets).filter(k=>fs.indexOf(k)<0).map(k=>q.toolingSets[k]).join(' and ')+
+      ' is inside it. Both push on the same reading at step 2, so a repeatability failure on '+
+      'its own cannot say which one moved. Inspecting them as separate sets is what turns the '+
+      'symptom into something you can go and fix.</p>'
+    : '';
+  const lost=q.lost.length
+    ? '<p style="margin:8px 0 0"><b>Cannot currently be trusted to find:</b> '+
+      q.lost.map(m=>m.label).join(', ')+'. Failed step: <b>'+q.cause+'</b>, '+q.daysOut+
+      ' day(s) in a row'+(q.firstOut?', first out '+q.firstOut:'')+'.</p>'
+    : '';
+  const p=q.plan;
+  const rca=p
+    ? '<div class="rcabox"><div class="rcah">Root-cause attribution and corrective action'+
+      (p.owner?' - owned by '+p.owner:'')+'</div>'+
+      (p.failure_means?'<p style="font-size:12.5px;margin:0 0 6px">'+p.failure_means+'</p>':'')+
+      rcaList('Probable causes, most likely first',p.probable_causes)+
+      rcaList('Contain now',p.containment)+
+      rcaList('Corrective action',p.corrective_actions)+
+      '<p class="disc">Attribution is a lookup against a reviewed list in '+
+      'config/station_selftest.yaml - deterministic, versioned, owned by a person. '+
+      'No model chooses the cause. It is where an investigation starts, not where it ends.</p></div>'
+    : '';
+  const ws=q.wear||[];
+  const wear=ws.length
+    ? '<div class="rcabox"><div class="rcah">Tooling wear by set - inside spec, and where it is heading</div>'+
+      ws.map(function(w){
+        return '<p style="font-size:12.5px;margin:0 0 7px"><b>'+w.set+'</b> - '+w.measure+
+          ' is <b>'+w.latest+' mm</b> against a <b>'+w.limit+' mm</b> limit, moving at '+w.rate+
+          ' mm per thousand units - about <b>'+Number(w.units).toLocaleString()+
+          ' more units</b> (~'+w.days+' days) to the limit.'+
+          (w.accel?' <b style="color:'+COLOR.ALERT+'">The rate itself is climbing</b> - '+w.r1+
+            ' then '+w.r2+' mm per thousand units, a factor of '+w.ratio+
+            '. Steady wear is a maintenance schedule; wear that speeds up means something '+
+            'else changed, and the parts made during the acceleration are the ones worth '+
+            'reviewing.':' The rate is steady, so this is a scheduling signal.')+'</p>';
+      }).join('')+
+      (q.trendPlan?rcaList('Corrective action',q.trendPlan.corrective_actions):'')+
+      '<p class="disc">'+ws[0].label+'</p></div>'
+    : '';
+  return '<div class="card"><b>Cell self-test</b> <span class="pill" style="background:'+c+'">'+
+    q.condition+'</span><p class="hint">Before judging any production unit the station measures a '+
+    'known reference coupon and inspects its own fixture. Because the answer is known in advance, '+
+    'bias and repeatability are measured rather than inferred. Which step fails decides which '+
+    'inspections are lost: an imaging failure costs the visual checks and spares the measurement; '+
+    'a measurement or tooling failure does the reverse.</p>'+
+    stepStrip(q)+lost+attribution+stCharts(q)+rca+wear+'</div>';
 }
 function lineFlow(lineId){
   const ss=D.stations.filter(s=>s.line===lineId).sort((a,b)=>a.order-b.order);
@@ -263,6 +507,7 @@ function overview(){
     <div class="tile"><div class="tv">${pct(M.overallFpy)}</div><div class="tl">Overall first-pass yield</div></div>
     <div class="tile"><div class="tv" style="color:${M.nAlert?COLOR.ALERT:COLOR.OK}">${M.nAlert}</div><div class="tl">Stations in ALERT</div></div>
     <div class="tile"><div class="tv" style="color:${M.dqScore<0.99?COLOR.WATCH:COLOR.OK}">${pct(M.dqScore)}</div><div class="tl">Data-quality score</div></div>
+    ${M.hasSelftest?`<div class="tile"><div class="tv" style="color:${M.nSelftest?COLOR.ALERT:COLOR.OK}">${M.nSelftest}</div><div class="tl">Stations failing cell self-test</div></div>`:''}
   </div>
   <h2>Production line flow</h2>
   <p class="hint">One tab per line. Each node is a vision-inspection station in material-flow order; color &amp; flag show live status. Click a station to drill in and run a test.</p>
@@ -289,6 +534,7 @@ function showStation(id){
   </div>
   <div class="card"><b>SPC p-chart — first-pass defect rate</b><div id="pc">${pchart(s)}</div>
     <p class="hint">Green = daily defect rate · red dashed = 3σ limits · red dots = out-of-control · diamonds = your simulated test batches.</p></div>
+  ${selftestCard(s)}
   ${t.hypothesis?`<div class="card"><span class="sev" style="background:${COLOR[t.severity]}">${(t.severity||'').toUpperCase()} · ${(t.pattern||'').replace(/_/g,' ')}</span>
      <p><b>AI root-cause triage:</b> ${t.hypothesis}</p>
      ${causes?`<div><b>Likely causes</b><div class="chips">${causes}</div></div>`:''}

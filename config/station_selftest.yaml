@@ -1,0 +1,292 @@
+# Station Self-Test — the cell proves it can still do its job, before it judges parts.
+#
+# THE IDEA
+# --------
+# A robot does a home-position check before it trusts its own coordinates. An
+# inspection cell should do the same thing, and for the same reason: everything
+# downstream is worthless if the instrument has quietly moved.
+#
+# So the station runs a scheduled self-test against a KNOWN reference artifact —
+# a coupon with features whose true values are recorded here — and reports what it
+# measured. Because the answer is known in advance, this is not a proxy for the
+# station's condition. It is a direct measurement of its accuracy.
+#
+# Four things happen, in this order, and each is GO / NO-GO:
+#
+#   1. IMAGING     — measure the reference coupon: brightness, sharpness, and
+#                    whether the reference 2D DataMatrix still reads and at what
+#                    grade. Barcode grade is the single best summary of imaging
+#                    health, because it degrades with light, focus, contrast and
+#                    optics all at once and it is graded on a published scale.
+#   2. MEASUREMENT — measure a reference feature of known length. The difference
+#                    from truth is BIAS; the spread over repeated reads is
+#                    REPEATABILITY. Both are measurable only because truth is known.
+#   3. TOOLING     — the station inspects the cell's OWN fixture: locator wear and
+#                    clamp position. A vision system is perfectly capable of
+#                    looking at the tooling that holds the part, not only the part.
+#   4. PRODUCTION  — only now does it judge production units against the control plan.
+#
+# WHICH CHECK GATES WHICH INSPECTION
+# ----------------------------------
+# This is the part that matters, and it is why a self-test is not just a health
+# light. A failed imaging check and a failed measurement check cost the station
+# DIFFERENT inspections. Mapping each check to the class of inspection it gates is
+# what turns a red light into "here is specifically what this station can no longer
+# be trusted to find".
+#
+# ON WEAR TRENDING, AND WHAT IT IS NOT
+# ------------------------------------
+# Section `wear_trending` fits a rate to MEASURED tooling wear and extrapolates it
+# to the point where it crosses the tolerance limit recorded here. That is straight
+# arithmetic on a measured characteristic against a spec — the same thing tool-wear
+# compensation has always done on a control chart.
+#
+# It is NOT a failure prediction and must never be described as one. There is no
+# failure history here, no distribution fitted to failures, no censoring, and no
+# hazard model. It says "at the rate this has been moving, it reaches the limit in
+# about N units." It does not say the tooling will break, and it cannot.
+
+version: 1
+owner: manufacturing_quality_engineering
+
+# --- The reference artifact --------------------------------------------------
+# Truth. Everything in the self-test is measured against these.
+reference_artifact:
+  id: CAL-COUPON-001
+  feature_length_mm: 10.0000
+  datamatrix_payload: "CAL-COUPON-001"
+  notes: >-
+    PLACEHOLDER dimensions. In a real cell this is a calibrated coupon with a
+    certificate, stored at the station and presented on a schedule or by a
+    self-test nest. The certificate value, not the drawing value, is truth.
+
+# --- Step 1 · Imaging check --------------------------------------------------
+imaging_check:
+  brightness_pct_of_reference: {min: 92.0, max: 108.0}
+  sharpness_score:             {min: 0.85}          # 0-1 edge contrast on the coupon
+  datamatrix_grade:            {min: 2.0}           # 0-4 scale, higher is better
+  gates: [appearance_high_contrast, appearance_low_contrast]
+  basis: >-
+    PLACEHOLDER limits. Barcode grade thresholds normally come from the published
+    grading standard the site has adopted; brightness and sharpness bands come out
+    of the acceptance study for that station. Replace before use.
+
+# --- Step 2 · Measurement check ----------------------------------------------
+measurement_check:
+  bias_mm:          {max_abs: 0.010}    # |measured - true| on the reference feature
+  repeatability_mm: {max: 0.015}        # spread over repeated reads
+  gates: [geometry]
+  basis: >-
+    PLACEHOLDER. In practice these come from a gage study on the reference coupon
+    and should be a defined fraction of the tightest tolerance the station is
+    asked to judge. Replace before use.
+
+# --- Step 3 · Tooling check --------------------------------------------------
+# The cell inspects its own tooling. Wear here does not break the camera — it
+# stops the part being presented the same way twice, which goes straight into any
+# dimensional reading and barely touches an appearance check.
+#
+# TWO TOOLING SETS, AND THIS IS THE POINT.
+# ----------------------------------------
+# The end-of-arm tooling PLACES the part. The fixture HOLDS it. Both contribute
+# to the same measured symptom — presentation scatter, which shows up as
+# repeatability in step 2 — and step 2 on its own cannot tell you which of them
+# moved. A worn gripper and a worn locator produce an identical reading.
+#
+# That is why they are inspected as separate sets. Without that, the corrective
+# action after a repeatability failure is a coin flip between replacing a fixture
+# and replacing a gripper. With it, the attribution is a measurement.
+#
+# Each set carries its own limits, its own wear trending, and its own reaction
+# plan, because the causes and the corrective actions are genuinely different:
+# a gripper wears against the part every cycle, a fixture wears against the
+# clamping force, and a TCP shifts after a crash nobody logged.
+tooling_check:
+  gates: [geometry]
+  basis: >-
+    PLACEHOLDER. Real limits come from the fixture and gripper drawings and from
+    the stack-up that fed the original tolerance analysis. Replace before use.
+  sets:
+    fixture:
+      label: Part-holding fixture
+      wears_against: clamping force and part loading
+      measures:
+        locator_wear_mm:  {max: 0.150, trend: true,  name: Locator wear}
+        clamp_offset_mm:  {max: 0.080, trend: false, name: Clamp position offset}
+    eoat:
+      label: End-of-arm tooling — robot gripper
+      wears_against: the part, every single cycle
+      measures:
+        gripper_pad_wear_mm: {max: 0.250, trend: true,  name: Gripper pad wear}
+        tcp_offset_mm:       {max: 0.120, trend: true,  name: Tool centre point offset}
+        jaw_parallelism_mm:  {max: 0.060, trend: false, name: Jaw parallelism}
+
+# --- Wear trending -----------------------------------------------------------
+# READ THE HEADER OF THIS FILE BEFORE CHANGING ANY WORDING HERE.
+# This extrapolates a measured trend to a SPEC LIMIT. It is not prognostics.
+wear_trending:
+  enabled: true
+  min_points: 20                 # refuse to fit a rate on less than this
+  basis_units: units_processed   # wear tracks throughput, not calendar time
+  # Refuse to extrapolate a trend that has not actually been observed. On a healthy
+  # fixture the measured wear is flat and the "rate" is just measurement noise;
+  # projecting it produces a confident-looking number built on nothing. Wear must
+  # have risen by at least this fraction of the limit before any projection is made.
+  min_observed_rise_fraction_of_limit: 0.05
+  # A rate that is itself changing is the interesting case. Steady wear is a
+  # maintenance schedule; accelerating wear means something else changed, and it
+  # raises a product-quality question rather than a tooling one.
+  acceleration:
+    split_halves: true           # compare rate over first half vs second half
+    flag_ratio: 1.25             # second-half rate this much higher => accelerating
+  report:
+    projected_units_to_limit: true
+    projected_days_to_limit: true
+    # Hard requirement: every projection ships with this label attached.
+    label: >-
+      Linear extrapolation of measured wear to the tolerance limit. Not a failure
+      prediction — no failure history, no reliability model, no claim about when
+      anything will stop working.
+
+# --- Reaction plans ----------------------------------------------------------
+# A finding with no action attached is a quality GATE, not a quality system. The
+# SPC side of this platform already ends in a reaction plan; the self-test side
+# has to as well, or it is a second dashboard that nobody opens twice.
+#
+# Attribution here is DETERMINISTIC: a failed step maps to a reviewed list, in
+# versioned config, owned by a human. No model picks the cause. That is the same
+# discipline as src/ai_triage.py, where code does the classifying and the LLM only
+# writes the narrative afterwards — it cannot introduce a wrong cause because it
+# never chooses one.
+#
+# The lists are ordered most-likely-first, which is a judgement a quality engineer
+# owns and revises. They are a starting point for an investigation, not its
+# conclusion: the investigation still belongs to a person.
+reaction_plans:
+  imaging_check:
+    failure_means: >-
+      The station can no longer resolve what it is being asked to see. It has not
+      started reporting bad parts — it has started not reporting them.
+    probable_causes:
+      - Illuminator output has fallen with age, or a lamp/LED segment has failed
+      - Lens, window or illuminator diffuser is contaminated
+      - Ambient light has changed at the cell (bay door, replaced overhead fitting, shift lighting)
+      - Focus or working distance has shifted after a crash, service or fixture change
+      - Reference coupon itself is dirty, worn or damaged
+    containment:
+      - Treat the affected visual inspections at this station as UNVERIFIED, not as passing
+      - Identify units processed since the first failed self-test and hold pending disposition
+      - Add a downstream manual check for the affected modes until the cell is restored
+    corrective_actions:
+      - Clean optics, illuminator and the reference coupon, then re-run the self-test
+      - Verify and restore illumination to the acceptance setpoint; replace the illuminator if output cannot be met
+      - Re-verify focus and working distance against the reference coupon
+      - Re-run the acceptance study and record the new baseline if anything optical was replaced
+    owner: Manufacturing Engineering
+    escalate_after_days: 1
+
+  measurement_check:
+    failure_means: >-
+      The station still sees the part but no longer measures it repeatably. Bias
+      and scatter against a known reference have moved outside the limits the
+      dimensional inspections were accepted at.
+    probable_causes:
+      - Fixture locators or clamps worn, so the part no longer presents the same way twice
+      - Fixture loose, damaged, or disturbed after a changeover
+      - Calibration has drifted, or the pixel-to-mm scale is stale
+      - Thermal growth in the cell or the part at time of measurement
+      - Reference coupon damaged or incorrectly seated
+    containment:
+      - Treat dimensional results from this station as UNVERIFIED
+      - Quarantine units measured since the first failed self-test
+      - Fall back to an independent gage for the affected characteristic
+    corrective_actions:
+      - Inspect and re-seat the fixture; verify locator and clamp condition against the fixture drawing
+      - Replace worn locators, then re-run the self-test before releasing the cell
+      - Re-calibrate and re-verify scale against the reference coupon
+      - Re-run the gage study and record the new baseline after any fixture or calibration change
+    owner: Manufacturing Engineering
+    escalate_after_days: 1
+
+  # Step 3 has a plan PER TOOLING SET, because the causes and the corrective
+  # actions are different even though the symptom in step 2 is identical.
+  tooling_check__fixture:
+    failure_means: >-
+      The fixture holding the part is outside the condition assumed by the
+      tolerance stack-up the inspection limits were derived from. The part is not
+      being held the same way twice.
+    probable_causes:
+      - Normal locator wear has reached the limit at current throughput
+      - Clamp drifted or was disturbed at a changeover
+      - Impact damage or a crash not reported at the time
+      - Missed preventive maintenance interval
+      - Wrong or mixed fixture fitted after a product change
+    containment:
+      - Stop releasing dimensional results from this cell until the fixture is verified
+      - Review units produced since the wear rate changed, not only since the limit was reached
+    corrective_actions:
+      - Replace or refurbish the locators and record the units-at-replacement
+      - Re-run the self-test and confirm measurement repeatability recovers
+      - Confirm the gripper is NOT also out — the two produce the same symptom
+      - If wear is accelerating, investigate what changed before assuming a fixture problem
+    owner: Maintenance / Tooling
+    escalate_after_days: 3
+
+  tooling_check__eoat:
+    failure_means: >-
+      The end-of-arm tooling is outside condition. The robot is not placing the
+      part in the same position every cycle, so the fixture receives it
+      differently each time even if the fixture itself is perfect.
+    probable_causes:
+      - Gripper pads worn — they contact the part on every cycle, so they wear fastest in the cell
+      - Tool centre point shifted after a collision, a tool change, or a mastering that was not re-verified
+      - Jaws out of parallel, so the part rotates slightly as it is gripped
+      - Compliance device or spring worn, changing the seating force
+      - Robot payload or speed changed without re-teaching the place position
+    containment:
+      - Stop releasing dimensional results from this cell until the gripper is verified
+      - Check whether the same robot serves other stations — the fault travels with the arm, not the station
+      - Review units placed since the TCP last moved
+    corrective_actions:
+      - Replace gripper pads and record the cycles-at-replacement
+      - Re-master the tool centre point and re-verify against the reference coupon
+      - Verify jaw parallelism and compliance travel against the gripper drawing
+      - Re-run the self-test and confirm measurement repeatability recovers
+      - Confirm the fixture is NOT also out — the two produce the same symptom
+    owner: Controls / Robotics
+    escalate_after_days: 2
+
+  tooling_trend:
+    failure_means: >-
+      Tooling is still inside its limit, and the measured wear trend is closing on
+      it. This is a scheduling signal, not a nonconformance.
+    probable_causes:
+      - Expected wear at current throughput
+      - Wear rate increasing — something upstream changed
+    containment:
+      - None required while the measurement remains inside its limit
+    corrective_actions:
+      - Schedule replacement before the projected crossing, on units processed rather than on a date
+      - If the rate is climbing, treat it as a product question first — review parts made during the acceleration
+      - Confirm the replacement interval against the recorded units-at-replacement from last time
+    owner: Maintenance / Tooling
+    escalate_after_days: 14
+
+# --- Monitoring rule ---------------------------------------------------------
+# Same discipline as the SPC WATCH/ALERT split: persistence, not one reading.
+# One failed self-test is a coupon that needed cleaning. Three in a row is a cell.
+monitoring:
+  consecutive_days_to_alert: 3
+  report_margin: true
+
+# --- Sensitivity -------------------------------------------------------------
+sensitivity:
+  enabled: true
+  sweep:
+    datamatrix_grade: [1.5, 2.0, 2.5]
+    sharpness_score: [0.80, 0.85, 0.90]
+    bias_mm: [0.006, 0.010, 0.015]
+    locator_wear_mm: [0.100, 0.150, 0.200]
+  claims:
+    E1: imaging_failure_costs_appearance_and_spares_geometry
+    E2: tooling_failure_costs_geometry_and_spares_appearance

@@ -27,6 +27,9 @@ jobs:
       - name: Generate ERP / MES / QMS source-system extracts
         run: python -m src.generate_systems
 
+      - name: Generate station self-test records (reference coupon + tooling inspection)
+        run: python -m src.generate_selftest
+
       - name: Run pipeline (validation -> SPC -> capability -> marts)
         run: python -m src.pipeline_pandas
 
@@ -36,11 +39,15 @@ jobs:
       - name: AI root-cause triage
         run: python -m src.ai_triage
 
-      - name: Build scorecard + interactive dashboard + integration page
+      - name: Audit inspection coverage + position-dependent operating point
+        run: python -m src.coverage
+
+      - name: Build scorecard + interactive dashboard + integration + coverage pages
         run: |
           python -m src.scorecard
           python -m src.dashboard
           python -m src.integration_page
+          python -m src.coverage_page
 
       - name: Run tests
         run: pytest -q
