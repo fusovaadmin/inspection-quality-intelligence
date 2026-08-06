@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo — Shop-Floor to Dashboard · Mark Mayeux</title>
+<style>
+  :root{
+    --accent:#0f3d2e; --accent2:#8a5a00;
+    --surface:#fcfcfb; --page:#f9f9f7; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --line:#d9dee5;
+    --series:#2a78d6; --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+    --gap:16px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink);
+    line-height:1.45; margin:0; background:var(--page);}
+  .wrap{max-width:1120px; margin:0 auto; padding:22px 20px 40px;}
+  h1{font-size:22px; margin:0 0 3px; letter-spacing:-.01em;}
+  .sub{font-size:13.5px; color:var(--accent); font-weight:600; margin:0 0 6px;}
+  .frame{font-size:12px; color:var(--ink2); background:#fbf7ee; border:1px solid #e6d9b8;
+    border-left:4px solid var(--accent2); padding:8px 12px; border-radius:0 5px 5px 0; margin:0 0 16px;}
+  .frame b{color:var(--accent2);}
+  .grid2{display:grid; grid-template-columns:minmax(300px,0.85fr) 1.15fr; gap:var(--gap); align-items:start;}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr;}}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:15px 16px;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .card h2{font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent2);
+    margin:0 0 10px; font-weight:700;}
+  .phys{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .part{font-size:15px; font-weight:700; margin:1px 0 2px;}
+  .sn{font-size:12px; color:var(--ink2); font-variant-numeric:tabular-nums;}
+  .step{display:flex; gap:9px; align-items:flex-start; padding:7px 0; border-top:1px solid var(--grid); font-size:13px;}
+  .step:first-of-type{border-top:0;}
+  .step input[type=checkbox]{margin-top:2px; width:16px; height:16px; accent-color:var(--accent);}
+  .step .lbl{flex:1;}
+  .step .tag{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
+  .field{margin:11px 0 3px;}
+  .field label{display:block; font-size:12px; font-weight:600; color:var(--ink2); margin-bottom:4px;}
+  .measrow{display:flex; align-items:center; gap:10px;}
+  .measrow input[type=number]{width:110px; font:600 15px/1 system-ui; padding:8px 10px; border:1px solid var(--axis);
+    border-radius:6px; font-variant-numeric:tabular-nums;}
+  .spec{font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .toggle{display:inline-flex; border:1px solid var(--axis); border-radius:7px; overflow:hidden;}
+  .toggle button{font:600 12.5px/1 system-ui; padding:8px 14px; border:0; background:#fff; color:var(--ink2); cursor:pointer;}
+  .toggle button.on-pass{background:var(--good); color:#fff;}
+  .toggle button.on-fail{background:var(--crit); color:#fff;}
+  .btn{font:700 13.5px/1 system-ui; background:var(--accent); color:#fff; border:0; padding:11px 16px;
+    border-radius:7px; cursor:pointer; width:100%; margin-top:13px;}
+  .btn:hover{background:#0b2c21;}
+  .btn:disabled{background:#9db3aa; cursor:not-allowed;}
+  .sim{display:flex; gap:6px; margin-top:9px;}
+  .sim button{flex:1; font:600 11px/1.2 system-ui; padding:7px 4px; border:1px dashed var(--axis); background:#fff;
+    color:var(--ink2); border-radius:6px; cursor:pointer;}
+  .sim button:hover{border-color:var(--accent); color:var(--accent);}
+  .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px;}
+  .tile{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:12px 13px;}
+  .tile .k{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:5px;}
+  .tile .v{font-size:26px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1;}
+  .tile .u{font-size:12px; color:var(--ink2); margin-top:3px;}
+  .banner{display:flex; gap:10px; align-items:center; padding:10px 13px; border-radius:8px; font-size:13px;
+    margin-bottom:12px; font-weight:600;}
+  .banner .dot{width:10px; height:10px; border-radius:50%; flex:none;}
+  .banner.good{background:#eaf7ea; color:#0a6b0a; border:1px solid #bfe6bf;}
+  .banner.warn{background:#fdf5e2; color:#8a5a00; border:1px solid #eed7a0;}
+  .banner.crit{background:#fbeceb; color:#9a2222; border:1px solid #f0c3c1;}
+  svg{display:block; width:100%; height:auto; font-family:system-ui,sans-serif;}
+  .axlab{font-size:10.5px; fill:var(--muted);}
+  .limlab{font-size:10px; font-weight:600;}
+  table{width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; font-variant-numeric:tabular-nums;}
+  th{text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);
+    font-weight:600; padding:5px 8px; border-bottom:1px solid var(--axis);}
+  td{padding:5px 8px; border-bottom:1px solid var(--grid);}
+  .pill{display:inline-block; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:20px;}
+  .pill.pass{background:#eaf7ea; color:#0a6b0a;} .pill.fail{background:#fbeceb; color:#9a2222;}
+  .foot{font-size:11.5px; color:var(--ink2); margin-top:18px; padding:12px 15px; background:#eef5f1;
+    border-left:4px solid var(--accent); border-radius:0 6px 6px 0;}
+  .foot b{color:var(--accent);}
+  .gchk{display:inline-flex; gap:7px; align-items:center; font-size:12px; color:var(--ink2); cursor:pointer;
+    border:1px solid #eed7a0; border-radius:7px; padding:8px 11px; margin-top:9px;}
+  .gchk input{width:15px; height:15px; accent-color:var(--warn);}
+  .trow{display:flex; gap:9px; align-items:flex-start; padding:7px 0; border-top:1px solid var(--grid); font-size:12px;}
+  .trow:first-child{border-top:0;}
+  .tick{flex:none; width:18px; height:18px; border-radius:50%; display:grid; place-items:center; font:700 11px/1 system-ui; color:#fff; margin-top:1px;}
+  .tick.ok{background:var(--good);} .tick.no{background:var(--crit);}
+  .tname{font-weight:600; flex:none; width:168px;}
+  .tdesc{color:var(--ink2); flex:1; font-size:11.5px;}
+  .truststate{font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px;}
+  .ts-trust{background:#eaf7ea; color:#0a6b0a;} .ts-quar{background:#fdf5e2; color:#8a5a00;}
+  .pill.held{background:#fdf5e2; color:#8a5a00;}
+  .thesis{font-size:12px; color:var(--muted); margin:3px 0 0;}
+</style></head>
+<body>
+<div style="background:#fff4e5;border-bottom:3px solid #d97706;color:#7c2d12;font:13px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:11px 18px 12px;text-align:center"><strong>Synthetic demonstration data.</strong> A portfolio prototype built by Mark Mayeux. No proprietary, production or customer data from any company appears on this page. Product and program names are used only to illustrate a realistic manufacturing context.<br><a href="./" style="color:#7c2d12;font-weight:600;text-decoration:none">&larr; Inspection Quality Intelligence &middot; prototypes</a></div>
+
+<div class="wrap">
+  <h1>Shop-Floor → Data → Dashboard</h1>
+  <p class="sub">Working demo for JD bullets 1 &amp; 5 · Intersection of Hardware &amp; Data + Drive Technical Rigor</p>
+  <p class="thesis">Left: what the <b>operator</b> does at the station (electronic Work Instruction + inspection + dimension capture). Right: the <b>digital dashboard</b> that same action feeds in real time. The translation of a physical step into a trustworthy metric is the whole job.</p>
+  <div class="frame"><b>Illustrative demo — not actual Anduril data.</b> Representative part, tolerances, and readings are fabricated to show the pattern. Built in vanilla JS/SVG; in production this is the Foundry Workshop / Databricks layer — <b>the vendor is the ramp, the workflow is the point.</b></div>
+
+  <div class="grid2">
+    <!-- OPERATOR STATION -->
+    <div class="card">
+      <h2>① Operator Station · Electronic Work Instruction</h2>
+      <p class="phys">Physical process</p>
+      <p class="part">Actuator Housing — Op 40: Bore Inspection</p>
+      <p class="sn">Traveler <span id="curSN">SN-1024</span> · Station A · Op: M. Mayeux</p>
+
+      <div style="margin-top:12px;">
+        <div class="step"><input type="checkbox" id="s1"><span class="lbl">Torque retaining bolts to 18 N·m in cross pattern<div class="tag">Assembly step</div></span></div>
+        <div class="step"><input type="checkbox" id="s2"><span class="lbl">Install bearing race, verify seating<div class="tag">Assembly step</div></span></div>
+        <div class="step"><input type="checkbox" id="s3"><span class="lbl">Deburr bore, wipe with IPA<div class="tag">Prep step</div></span></div>
+      </div>
+
+      <div class="field">
+        <label>Visual inspection — surface finish &amp; thread condition</label>
+        <div class="toggle" id="visTog">
+          <button type="button" data-v="pass" class="on-pass">Pass</button>
+          <button type="button" data-v="fail">Fail</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Dimension capture — bore Ø (mm)</label>
+        <div class="measrow">
+          <input type="number" id="dim" step="0.001" value="12.038">
+          <span class="spec">Nominal 12.000 · Tol ±0.050<br>LSL 11.950 · USL 12.050</span>
+        </div>
+      </div>
+
+      <button class="btn" id="submit">Sign off &amp; submit unit →</button>
+      <div class="sim">
+        <button data-sim="good">Sim: in-control unit</button>
+        <button data-sim="drift">Sim: drifting unit</button>
+        <button data-sim="oos">Sim: out-of-spec unit</button>
+      </div>
+      <div class="sim">
+        <button data-sim="glitch">Sim: sensor glitch (data)</button>
+        <button data-sim="frozen">Sim: frozen gauge (data)</button>
+      </div>
+      <label class="gchk"><input type="checkbox" id="gfault"> Gauge out of cal (data fault)</label>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div>
+      <div id="alert" class="banner good"><span class="dot" style="background:var(--good)"></span><span id="alertTxt">All metrics in control.</span></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">First-Pass Yield</div><div class="v" id="tFPY">—</div><div class="u" id="tFPYu">units today</div></div>
+        <div class="tile"><div class="k">Process Capability Cpk</div><div class="v" id="tCpk">—</div><div class="u" id="tCpku">bore Ø</div></div>
+        <div class="tile"><div class="k">Drift Status</div><div class="v" id="tDrift" style="font-size:19px;">—</div><div class="u" id="tDriftu">last 5 units</div></div>
+      </div>
+      <div class="card">
+        <h2>② Digital Dashboard · Bore Ø — SPC run chart</h2>
+        <div id="chart"></div>
+        <table>
+          <thead><tr><th>Unit</th><th>Bore Ø</th><th>Visual</th><th>Result</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>③ Data Trust · gauge &amp; reading checks <span id="trust1State" class="truststate ts-trust" style="text-transform:none;letter-spacing:0;margin-left:4px;">✓ TRUSTED</span></h2>
+        <div id="trust1"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><b>What this demonstrates for the interview:</b> the operator never touches a spreadsheet — they do the physical work and sign off; the metric, the yield, the capability index, and the <em>drift alert that catches the trend before any part goes out of spec</em> are all generated from that one action. That is "translate physical manufacturing processes into actionable digital dashboards," and it is the same eWI→capture→scorecard shape whether the backend is my AWS/Python stack or Anduril's Foundry/Databricks. <b>The Data Trust panel adds the rigor layer:</b> a frozen gauge, a sensor glitch, or an out-of-cal instrument gets quarantined and held out of the Cpk/FPY/chart — so the scorecard is provably trustworthy, not just green.</div>
+</div>
+
+<script>
+const NOM=12.000, TOL=0.050, USL=NOM+TOL, LSL=NOM-TOL;
+const yMin=11.930, yMax=12.070;
+const PLAUS_LO=11.5, PLAUS_HI=12.5;               // physical-plausibility band for the gauge
+const GAUGE_CAL="2026-09-30", GCAL_EXP="2026-06-15";
+let units=[]; let visual="pass"; let nextSN=1024; let gaugeFault=false;
+
+// seed history: gentle upward drift, none yet out of spec
+const seed=[11.985,12.000,11.992,12.008,12.004,12.015,12.011,12.020,12.017,12.028,12.024,12.035];
+seed.forEach((d,i)=>units.push({sn:1012+i, dim:d, vis:"pass", q:null}));
+nextSN=1012+seed.length;
+
+const $=id=>document.getElementById(id);
+const trusted=()=>units.filter(u=>!u.q);   // data-quality gate: only trustworthy readings feed the metrics
+
+function stats(){
+  const U=trusted();
+  const dims=U.map(u=>u.dim);
+  const n=dims.length||1;
+  const mean=dims.reduce((a,b)=>a+b,0)/n;
+  const sd=Math.sqrt(dims.reduce((a,b)=>a+(b-mean)**2,0)/Math.max(n-1,1))||0.0001;
+  const cpk=Math.min(USL-mean, mean-LSL)/(3*sd);
+  const pass=U.filter(u=>u.vis==="pass" && u.dim>=LSL && u.dim<=USL).length;
+  const fpy=100*pass/n;
+  // drift: slope over last 5, and proximity to a limit
+  const last=U.slice(-5);
+  let slope=0;
+  if(last.length>=3){
+    const xs=last.map((_,i)=>i), ys=last.map(u=>u.dim);
+    const mx=xs.reduce((a,b)=>a+b,0)/xs.length, my=ys.reduce((a,b)=>a+b,0)/ys.length;
+    const num=xs.reduce((a,x,i)=>a+(x-mx)*(ys[i]-my),0);
+    const den=xs.reduce((a,x)=>a+(x-mx)**2,0)||1;
+    slope=num/den;
+  }
+  const lastVal=dims[n-1];
+  const oos=lastVal>USL||lastVal<LSL;
+  const nearUSL=(USL-lastVal)/TOL;      // fraction of tol remaining to USL
+  const nearLSL=(lastVal-LSL)/TOL;
+  const drifting=!oos && Math.abs(slope)>0.002 && (nearUSL<0.35||nearLSL<0.35);
+  return {mean,sd,cpk,fpy,slope,lastVal,oos,drifting,nearUSL,nearLSL};
+}
+
+function chart(){
+  const W=640,H=300, mL=52,mR=16,mT=16,mB=34;
+  const pw=W-mL-mR, ph=H-mT-mB;
+  const U=trusted();                 // chart shows only provably-trustworthy readings
+  const n=U.length;
+  const xs=i=> mL + (n<=1?0:pw*i/(n-1));
+  const ys=v=> mT + ph*(yMax-v)/(yMax-yMin);
+  // gridlines every 0.02
+  let grid="";
+  for(let v=11.94; v<=12.06+1e-9; v+=0.02){
+    grid+=`<line x1="${mL}" x2="${mL+pw}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)" stroke-width="1"/>`+
+          `<text x="${mL-6}" y="${ys(v)+3}" class="axlab" text-anchor="end">${v.toFixed(2)}</text>`;
+  }
+  // limit lines
+  const lims=
+    `<line x1="${mL}" x2="${mL+pw}" y1="${ys(USL)}" y2="${ys(USL)}" stroke="var(--crit)" stroke-width="1.3" stroke-dasharray="5 3"/>`+
+    `<text x="${mL+pw}" y="${ys(USL)-4}" class="limlab" fill="var(--crit)" text-anchor="end">USL 12.050</text>`+
+    `<line x1="${mL}" x2="${mL+pw}" y1="${ys(LSL)}" y2="${ys(LSL)}" stroke="var(--crit)" stroke-width="1.3" stroke-dasharray="5 3"/>`+
+    `<text x="${mL+pw}" y="${ys(LSL)+12}" class="limlab" fill="var(--crit)" text-anchor="end">LSL 11.950</text>`+
+    `<line x1="${mL}" x2="${mL+pw}" y1="${ys(NOM)}" y2="${ys(NOM)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/>`+
+    `<text x="${mL+pw}" y="${ys(NOM)-4}" class="limlab" fill="var(--muted)" text-anchor="end">Target 12.000</text>`;
+  // trend line (trusted only)
+  const path=U.map((u,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(u.dim).toFixed(1)}`).join(' ');
+  const trend=`<path d="${path}" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round"/>`;
+  // points
+  const pts=U.map((u,i)=>{
+    const oos=u.dim>USL||u.dim<LSL;
+    const c=oos?'var(--crit)':'var(--series)'; const r=oos?5:3.4;
+    return `<circle cx="${xs(i).toFixed(1)}" cy="${ys(u.dim).toFixed(1)}" r="${r}" fill="${c}" stroke="var(--surface)" stroke-width="1.5"><title>SN-${u.sn}: ${u.dim.toFixed(3)} mm${oos?' — OUT OF SPEC':''}</title></circle>`;
+  }).join('');
+  $("chart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bore diameter SPC run chart">
+    ${grid}${lims}${trend}${pts}
+    <text x="${mL+pw/2}" y="${H-4}" class="axlab" text-anchor="middle">Trusted unit sequence (${n} of ${units.length})</text>
+    <text x="12" y="${mT+ph/2}" class="axlab" text-anchor="middle" transform="rotate(-90,12,${mT+ph/2})">Bore Ø (mm)</text>
+  </svg>`;
+}
+
+function render(){
+  const s=stats();
+  const nq=units.filter(u=>u.q).length;
+  $("tFPY").textContent=s.fpy.toFixed(1)+"%";
+  $("tFPYu").textContent=nq? `${trusted().length} trusted · ${nq} held` : `${units.length} units`;
+  $("tCpk").textContent=s.cpk.toFixed(2);
+  $("tCpk").style.color = s.cpk>=1.33?'var(--good)': s.cpk>=1.0?'var(--warn)':'var(--crit)';
+  let dtxt,dcls,dcol;
+  if(s.oos){dtxt="OUT OF SPEC";dcol='var(--crit)';dcls='crit';}
+  else if(s.drifting){dtxt="DRIFT ↑";dcol='var(--warn)';dcls='warn';}
+  else {dtxt="STABLE";dcol='var(--good)';dcls='good';}
+  $("tDrift").textContent=dtxt; $("tDrift").style.color=dcol;
+  // banner
+  const b=$("alert"); b.className="banner "+dcls;
+  const dot=b.querySelector(".dot"); dot.style.background=dcol;
+  if(s.oos) $("alertTxt").innerHTML=`<b>Escape prevented:</b> last unit measured ${s.lastVal.toFixed(3)} mm — outside spec. Unit held, station flagged.`;
+  else if(s.drifting) $("alertTxt").innerHTML=`<b>Quality drift detected</b> — bore Ø trending toward USL (${(s.nearUSL*100).toFixed(0)}% of tolerance remaining). Catch it before the customer does.`;
+  else $("alertTxt").textContent="All metrics in control.";
+  // table (last 8, newest first)
+  $("tbody").innerHTML=units.slice(-8).reverse().map(u=>{
+    const oos=u.dim>USL||u.dim<LSL; const bad=oos||u.vis==="fail";
+    const qlab={cal:'HELD · CAL',range:'HELD · RANGE',frozen:'HELD · FROZEN'}[u.q];
+    const result = u.q? `<span class="pill held">${qlab}</span>` : `<span class="pill ${bad?'fail':'pass'}">${bad?'REJECT':'ACCEPT'}</span>`;
+    return `<tr><td>SN-${u.sn}</td><td style="color:${u.q?'var(--warn)':oos?'var(--crit)':'var(--ink)'}">${u.dim.toFixed(3)}</td>
+      <td><span class="pill ${u.vis==='pass'?'pass':'fail'}">${u.vis.toUpperCase()}</span></td>
+      <td>${result}</td></tr>`;
+  }).join('');
+  $("curSN").textContent="SN-"+nextSN;
+  drawTrust1();
+  chart();
+}
+function drawTrust1(){
+  const q=units.filter(u=>u.q);
+  const rangeBad=units.some(u=>u.q==='range'), frozenBad=units.some(u=>u.q==='frozen');
+  const checks=[
+    {n:"Gauge calibration current", d: gaugeFault? `bore gauge cal EXPIRED ${GCAL_EXP} — new readings untrustworthy` : `bore gauge in-cal (exp ${GAUGE_CAL})`, ok:!gaugeFault},
+    {n:"Range plausibility", d: rangeBad? `${units.filter(u=>u.q==='range').length} reading(s) outside ${PLAUS_LO}–${PLAUS_HI} mm — sensor/entry error` : `all readings within ${PLAUS_LO}–${PLAUS_HI} mm`, ok:!rangeBad},
+    {n:"Frozen-gauge scan", d: frozenBad? "3+ identical consecutive readings — gauge stuck" : "no frozen-sensor pattern", ok:!frozenBad},
+    {n:"Held-out records", d: q.length? `${q.length} record(s) quarantined — excluded from Cpk / FPY / chart` : "0 quarantined — every point on the chart is trusted", ok:q.length===0},
+  ];
+  $("trust1").innerHTML=checks.map(c=>{
+    const cls=c.ok?'ok':'no', g=c.ok?'✓':'✕';
+    return `<div class="trow"><div class="tick ${cls}">${g}</div><div class="tname">${c.n}</div><div class="tdesc">${c.d}</div></div>`;
+  }).join('');
+  const failing=checks.filter(c=>!c.ok).length, st=$("trust1State");
+  if(failing===0){ st.className="truststate ts-trust"; st.textContent="✓ TRUSTED"; }
+  else { st.className="truststate ts-quar"; st.textContent=`⛔ ${failing} check(s) failed`; }
+}
+
+function addUnit(dim,vis){
+  const d=+(+dim).toFixed(3);
+  let q=null;                                   // data-quality gate
+  if(gaugeFault) q='cal';                        // gauge out of cal → reading not trustworthy
+  else if(d<PLAUS_LO||d>PLAUS_HI) q='range';     // physically implausible → sensor/entry error
+  else if(units.length>=2 && units.slice(-2).every(u=>u.dim===d)) q='frozen';  // 3-in-a-row → stuck gauge
+  units.push({sn:nextSN++, dim:d, vis, q});
+  if(units.length>40) units=units.slice(-40);
+  render();
+}
+
+// visual toggle
+$("visTog").addEventListener("click",e=>{
+  const btn=e.target.closest("button"); if(!btn)return;
+  visual=btn.dataset.v;
+  [...$("visTog").children].forEach(b=>{b.className="";});
+  btn.className=visual==="pass"?"on-pass":"on-fail";
+});
+$("submit").addEventListener("click",()=>{
+  const v=parseFloat($("dim").value); if(isNaN(v))return;
+  addUnit(v,visual);
+});
+document.querySelectorAll(".sim button").forEach(b=>b.addEventListener("click",()=>{
+  const k=b.dataset.sim;
+  const lastT=(trusted().slice(-1)[0]||{dim:12.02}).dim;
+  if(k==="good") addUnit((11.995+Math.round((Math.random()*10))/1000).toFixed(3),"pass");
+  if(k==="drift") addUnit((lastT+0.006).toFixed(3),"pass");
+  if(k==="oos") addUnit((12.058).toFixed(3),"pass");
+  if(k==="glitch") addUnit(120.38,"pass");                       // sensor glitch → range check
+  if(k==="frozen"){ addUnit(lastT,"pass"); addUnit(lastT,"pass"); addUnit(lastT,"pass"); }  // stuck gauge → frozen check
+}));
+$("gfault").addEventListener("change",e=>{ gaugeFault=e.target.checked; });
+
+render();
+</script>
+</body></html>

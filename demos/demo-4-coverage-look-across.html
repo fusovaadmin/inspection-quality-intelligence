@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage Rev2 — Look Across</title>
+<style>
+:root{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb;
+  --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --rule:#c3c2b7; --ring:rgba(11,11,11,0.10);
+  --critical:#d03b3b; --warning:#fab219; --serious:#ec835a; --good:#0ca30c;
+  --src-bg:rgba(208,59,59,0.14); --exp-bg:rgba(250,178,25,0.20);
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19;
+    --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --rule:#383835; --ring:rgba(255,255,255,0.10);
+    --src-bg:rgba(208,59,59,0.26); --exp-bg:rgba(250,178,25,0.22);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19;
+  --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --rule:#383835; --ring:rgba(255,255,255,0.10);
+  --src-bg:rgba(208,59,59,0.26); --exp-bg:rgba(250,178,25,0.22);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:21px;margin:0 0 4px;letter-spacing:-0.01em}
+.sub{color:var(--ink2);font-size:13px;margin:0 0 22px}
+.sub b{color:var(--ink)}
+h2{font-size:12px;letter-spacing:0.10em;text-transform:uppercase;color:var(--muted);
+  margin:30px 0 10px;font-weight:600}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:16px}
+
+/* stat row */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:12px 14px}
+.stat .v{font-size:27px;font-weight:650;letter-spacing:-0.02em;line-height:1.1}
+.stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:3px}
+.stat .n{font-size:12px;color:var(--ink2);margin-top:5px}
+
+/* finding selector */
+.picker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chip{border:1px solid var(--rule);background:transparent;color:var(--ink2);
+  border-radius:999px;padding:5px 11px;font:inherit;font-size:12px;cursor:pointer;
+  white-space:nowrap;transition:.12s}
+.chip:hover{border-color:var(--ink2);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink);font-weight:600}
+
+/* matrix */
+.mx{width:100%;border-collapse:separate;border-spacing:2px;font-size:13px}
+.mx th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  font-weight:600;text-align:left;padding:4px 8px}
+.mx td{background:var(--plane);border:1px solid var(--grid);border-radius:5px;
+  padding:7px 9px;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.mx td.st{font-weight:650;color:var(--ink);width:74px}
+.mx tr.src td{background:var(--src-bg);border-color:var(--critical)}
+.mx tr.exp td{background:var(--exp-bg);border-color:var(--warning)}
+.mx tr.src td.st,.mx tr.exp td.st{color:var(--ink)}
+.mx td.hit{font-weight:650;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;
+  padding:1px 6px;border-radius:4px;margin-left:7px;vertical-align:1px}
+.tag.s{background:var(--critical);color:#fff}
+.tag.e{background:var(--warning);color:#1a1a19}
+
+.readout{margin-top:14px;padding:12px 14px;border-left:3px solid var(--rule);
+  background:var(--plane);border-radius:0 6px 6px 0;font-size:13px;color:var(--ink2)}
+.readout b{color:var(--ink)}
+.readout .lead{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}
+
+/* tables */
+.tbl-scroll{overflow-x:auto}
+table.d{width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px}
+table.d th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);font-weight:600;padding:7px 9px;border-bottom:1px solid var(--rule);white-space:nowrap}
+table.d td{padding:8px 9px;border-bottom:1px solid var(--grid);color:var(--ink2);vertical-align:top}
+table.d td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+table.d td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+table.d tr:last-child td{border-bottom:none}
+.v-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;
+  padding:2px 7px;border-radius:4px;white-space:nowrap}
+.v-SYSTEMIC{background:var(--critical);color:#fff}
+.v-SHARED_ASSET{background:var(--warning);color:#1a1a19}
+.v-LOCAL{background:transparent;color:var(--ink2);border:1px solid var(--rule)}
+.sev{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.sev-high{color:var(--critical)} .sev-medium{color:var(--serious)}
+.sev-watch{color:var(--warning)} .sev-insight,.sev-open_question{color:var(--muted)}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;font-size:12.5px}
+.legend div{padding:10px 12px;border:1px solid var(--ring);border-radius:8px;background:var(--surface)}
+.legend b{display:block;margin-bottom:3px;font-size:11px;letter-spacing:.06em}
+.src-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+</style>
+</head>
+<body>
+<div style="background:#fff4e5;border-bottom:3px solid #d97706;color:#7c2d12;font:13px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:11px 18px 12px;text-align:center"><strong>Synthetic demonstration data.</strong> A portfolio prototype built by Mark Mayeux. No proprietary, production or customer data from any company appears on this page. Product and program names are used only to illustrate a realistic manufacturing context.<br><a href="./" style="color:#7c2d12;font-weight:600;text-decoration:none">&larr; Inspection Quality Intelligence &middot; prototypes</a></div>
+
+<div class="wrap">
+
+<h1>Coverage Rev2 — Look Across</h1>
+<p class="sub">Extent of condition. A finding names one station; this names <b>every station already exposed to the same condition</b> — because the fault travels with the shared asset, not the station.</p>
+
+<div class="stats">
+  <div class="stat"><div class="v">10</div><div class="k">Findings swept</div><div class="n">every condition &amp; plan finding</div></div>
+  <div class="stat"><div class="v" style="color:var(--critical)">1</div><div class="k">Systemic</div><div class="n">one plan problem, not 9 local ones</div></div>
+  <div class="stat"><div class="v" style="color:var(--warning)">9</div><div class="k">Shared asset</div><div class="n">exposure beyond the finding station</div></div>
+  <div class="stat"><div class="v">16,200</div><div class="k">Units in containment</div><div class="n">3 distinct station windows</div></div>
+</div>
+
+<h2>1 · Pick a finding → the floor lights up</h2>
+<div class="card">
+  <div class="picker" id="picker"></div>
+
+  <div class="tbl-scroll">
+  <table class="mx">
+    <thead><tr>
+      <th>Station</th><th>Line</th><th>Robot</th><th>Illuminator</th><th>Fixture design</th>
+    </tr></thead>
+    <tbody id="mx"></tbody>
+  </table>
+  </div>
+
+  <div class="readout" id="readout"></div>
+</div>
+
+<h2>2 · Extent of condition — all 10 rows</h2>
+<div class="card tbl-scroll">
+  <table class="d">
+    <thead><tr>
+      <th>Finding</th><th>At</th><th>Verdict</th><th>Travels with</th>
+      <th>Also exposed</th><th class="num">Stations</th><th class="num">Units held</th>
+    </tr></thead>
+    <tbody id="extent"></tbody>
+  </table>
+</div>
+
+<h2>3 · The three verdicts</h2>
+<div class="legend">
+  <div><b style="color:var(--ink2)">LOCAL</b>Nothing else shares the asset and no peer is near the limit. Fix the instance.</div>
+  <div><b style="color:var(--warning)">SHARED ASSET</b>Other stations run the same robot, illuminator or fixture design. Exposed whether or not they have tripped.</div>
+  <div><b style="color:var(--critical)">SYSTEMIC</b>Present everywhere. One problem with the plan, not N local ones.</div>
+</div>
+
+<h2>4 · Findings feeding the sweep — one line each</h2>
+<div class="card tbl-scroll">
+  <table class="d">
+    <thead><tr><th>ID</th><th>Station</th><th>Sev</th><th>Owner</th><th>Finding</th></tr></thead>
+    <tbody id="findings"></tbody>
+  </table>
+</div>
+
+<p class="src-note">
+Sources — topology: <code>config/station_selftest.yaml</code> §asset_topology (L297–305) and §propagates_with (L310–314) · sweep output: <code>data/marts/look_across.csv</code> · findings: <code>data/quality/coverage_report.json</code> · engine: <code>src/look_across.py</code>.
+Synthetic data throughout. Topology is declared config a human owns, not inferred — no model chooses exposure.
+</p>
+
+<script>
+const TOPO = {
+  S1:{line:"LINE-A",robot:"ROB-A1",illuminator_model:"ILL-100",fixture_design:"FIX-STD-A"},
+  S2:{line:"LINE-A",robot:"ROB-A1",illuminator_model:"ILL-100",fixture_design:"FIX-STD-A"},
+  S3:{line:"LINE-A",robot:"ROB-A2",illuminator_model:"ILL-220",fixture_design:"FIX-STD-B"},
+  S4:{line:"LINE-B",robot:"ROB-B1",illuminator_model:"ILL-100",fixture_design:"FIX-STD-A"},
+  S5:{line:"LINE-B",robot:"ROB-B1",illuminator_model:"ILL-100",fixture_design:"FIX-STD-A"},
+  S6:{line:"LINE-B",robot:"ROB-B2",illuminator_model:"ILL-220",fixture_design:"FIX-STD-B"},
+  S7:{line:"LINE-C",robot:"ROB-C1",illuminator_model:"ILL-100",fixture_design:"FIX-STD-A"},
+  S8:{line:"LINE-C",robot:"ROB-C1",illuminator_model:"ILL-100",fixture_design:"FIX-STD-A"},
+  S9:{line:"LINE-C",robot:"ROB-C2",illuminator_model:"ILL-220",fixture_design:"FIX-STD-B"}
+};
+const COLS = ["robot","illuminator_model","fixture_design"];
+
+// Rows are data/marts/look_across.csv, verbatim.
+const ROWS = [
+ {label:"S8 · gripper out of limit", id:"CONDITION_COVERAGE_LOST", station:"S8", mode:"DIM-OOS",
+  verdict:"SHARED_ASSET", via:"robot", asset:"ROB-C1", peers:["S7"], units:4320,
+  lead:"S7 is exposed and has no finding of its own.",
+  body:"The worn gripper is a property of robot <b>ROB-C1</b>, not of S8. S7 runs the same arm, so it carries the same tool-centre-point error whether or not it has tripped. S7 is invisible on every other view in this system. Containment: <b>4,320 units</b> through S8, 2026-05-06 → 2026-05-30."},
+
+ {label:"S9 · imaging self-test failed 38d", id:"CONDITION_COVERAGE_LOST", station:"S9", mode:"CMP-MISS, SEAL-GAP, SLD-BRDG, SRF-SCR",
+  verdict:"SHARED_ASSET", via:"illuminator_model", asset:"ILL-220", peers:["S3","S6"], units:6660,
+  lead:"Two more stations run the same illuminator model.",
+  body:"S9 lost 4 assigned inspections. The fault travels with illuminator model <b>ILL-220</b> — a bad batch dims everywhere it was fitted — so <b>S3 and S6</b> are exposed. Containment: <b>6,660 units</b> through S9, 2026-04-23 → 2026-05-30."},
+
+ {label:"S2 · fixture locator wear", id:"TOOLING_TRENDING_TO_LIMIT", station:"S2", mode:"—",
+  verdict:"SHARED_ASSET", via:"fixture_design", asset:"FIX-STD-A", peers:["S1","S4","S5","S7","S8"], units:5220,
+  lead:"Six of nine stations run this fixture design.",
+  body:"A fixture design reused down a line wears the same way on every copy. <b>FIX-STD-A</b> is fitted at S1, S2, S4, S5, S7, S8 — so five peers are exposed to the same wear mode. Containment: <b>5,220 units</b> through S2, 2026-05-01 → 2026-05-30."},
+
+ {label:"S2 · measurement self-test failed 30d", id:"CONDITION_COVERAGE_LOST", station:"S2", mode:"DIM-OOS",
+  verdict:"SHARED_ASSET", via:"robot", asset:"ROB-A1", peers:["S1"], units:5220,
+  lead:"S1 shares the arm — and S8 is already over the limit.",
+  body:"Repeatability travels with robot <b>ROB-A1</b>, so S1 is exposed. On the same measure <b>S8 sits at 141% of the limit (breached)</b> — that is the next one, and it is invisible from a single-station view. Containment: <b>5,220 units</b> through S2, 2026-05-01 → 2026-05-30."},
+
+ {label:"S5 · TCP offset trending", id:"TOOLING_TRENDING_TO_LIMIT", station:"S5", mode:"—",
+  verdict:"SHARED_ASSET", via:"robot", asset:"ROB-B1", peers:["S4"], units:null,
+  lead:"S4 shares the arm; S8 is at 118% of the same limit.",
+  body:"Tool-centre-point offset is a property of robot <b>ROB-B1</b>, shared with <b>S4</b>. Still inside its own limit at S5 — this is a scheduling signal, not a nonconformance."},
+
+ {label:"LBL-ERR · unassigned mode", id:"UNASSIGNED_MODE", station:null, mode:"LBL-ERR",
+  verdict:"SYSTEMIC", via:"control plan", asset:"—",
+  peers:["S1","S2","S3","S4","S5","S6","S7","S8","S9"], units:null,
+  lead:"Present at 9 of 9 stations.",
+  body:"All nine stations are finding label / marking error, and not one of them is assigned to look for it. This is <b>one problem with the control plan, not nine local ones</b> — fixing it station by station is the expensive way to never finish."},
+
+ {label:"CMP-MISS · late first look", id:"LATE_FIRST_LOOK", station:null, mode:"CMP-MISS",
+  verdict:"SHARED_ASSET", via:"control plan", asset:"—",
+  peers:["S2","S3","S5","S6","S8","S9"], units:null,
+  lead:"Present at 6 of 9 stations.",
+  body:"Nobody looks for missing component until station position 2. Confined to part of the floor — the plan is inconsistent rather than uniformly wrong, and knowing which is which changes the fix."},
+
+ {label:"SLD-BRDG · late first look", id:"LATE_FIRST_LOOK", station:null, mode:"SLD-BRDG",
+  verdict:"SHARED_ASSET", via:"control plan", asset:"—",
+  peers:["S2","S3","S5","S6","S8","S9"], units:null,
+  lead:"Present at 6 of 9 stations.",
+  body:"Nobody looks for solder bridging until station position 2. Same plan inconsistency, different mode."},
+
+ {label:"SEAL-GAP · declared, never found", id:"DECLARED_SILENT", station:null, mode:"SEAL-GAP",
+  verdict:"SHARED_ASSET", via:"control plan", asset:"—",
+  peers:["S3","S6","S9"], units:null,
+  lead:"Present at 3 of 9 stations.",
+  body:"Seal gap at bond line is on three stations' inspection lists and has never once been found. Either it does not occur, or nobody is finding it — and those are opposite problems."},
+
+ {label:"SRF-SCR · late first look", id:"LATE_FIRST_LOOK", station:null, mode:"SRF-SCR",
+  verdict:"SHARED_ASSET", via:"control plan", asset:"—",
+  peers:["S3","S6","S9"], units:null,
+  lead:"Present at 3 of 9 stations.",
+  body:"Nobody looks for surface scratch until station position 3."}
+];
+
+const FINDINGS = [
+ ["UNASSIGNED_MODE","—","high","—","All 9 stations are finding Label / marking error (LBL-ERR) — and not one of them is assigned to look for it"],
+ ["DECLARED_SILENT","—","open_question","—","Seal gap at bond line (SEAL-GAP) is on 3 stations' inspection lists and has never once been found"],
+ ["NO_BACKSTOP","—","high","—","If station S3 misses Solder bridging (SLD-BRDG), nothing downstream will catch it"],
+ ["NO_BACKSTOP","—","high","—","If station S3 misses Surface scratch (SRF-SCR), nothing downstream will catch it"],
+ ["LATE_FIRST_LOOK","—","medium","—","Nobody looks for Missing component (CMP-MISS) until station position 2"],
+ ["LATE_FIRST_LOOK","—","medium","—","Nobody looks for Solder bridging (SLD-BRDG) until station position 2"],
+ ["LATE_FIRST_LOOK","—","medium","—","Nobody looks for Surface scratch (SRF-SCR) until station position 3"],
+ ["POSITION_IS_NOT_THE_DRIVER","—","insight","—","The last station on the line has to be nearly as strict as the first one"],
+ ["CONDITION_COVERAGE_LOST","S2","high","Manufacturing Engineering","Failed its measurement self-test 30 days running, and has lost 1 of the inspections it is assigned"],
+ ["CONDITION_COVERAGE_LOST","S8","high","Controls / Robotics","The end-of-arm gripper is out of limit — and it, not the part-holding fixture, is why the measurement stopped repeating"],
+ ["CONDITION_COVERAGE_LOST","S9","high","Manufacturing Engineering","Failed its imaging self-test 38 days running, and has lost 4 of the inspections it is assigned"],
+ ["CONDITION_TRANSIENT","S6","watch","—","Went dim for 2 days and came back on its own — noted, not alarmed"],
+ ["TOOLING_TRENDING_TO_LIMIT","S2","watch","Maintenance / Tooling","Locator wear on the part-holding fixture is within spec but closing on its limit — about 12 days at the current rate"],
+ ["TOOLING_TRENDING_TO_LIMIT","S5","watch","Maintenance / Tooling","Tool centre point offset on the gripper is within spec but closing on its limit — about 11 days at the current rate"],
+ ["CONDITION_LOSS_IS_SELECTIVE","—","insight","—","The two ways a cell goes wrong break opposite halves of the inspection, which is why neither shows up in yield"]
+];
+
+let active = 0;
+
+function drawPicker(){
+  document.getElementById("picker").innerHTML = ROWS.map((r,i)=>
+    `<button class="chip" role="button" aria-pressed="${i===active}" data-i="${i}">${r.label}</button>`
+  ).join("");
+}
+
+function drawMatrix(){
+  const r = ROWS[active];
+  const peers = new Set(r.peers || []);
+  document.getElementById("mx").innerHTML = Object.entries(TOPO).map(([st,a])=>{
+    const isSrc = st === r.station;
+    const isExp = peers.has(st) && !isSrc;
+    const cls = isSrc ? "src" : isExp ? "exp" : "";
+    const cells = COLS.map(c=>{
+      const hit = (c === r.via) && (isSrc || isExp);
+      return `<td class="${hit?"hit":""}">${a[c]}</td>`;
+    }).join("");
+    const tag = isSrc ? '<span class="tag s">FINDING</span>'
+              : isExp ? '<span class="tag e">EXPOSED</span>' : "";
+    return `<tr class="${cls}"><td class="st">${st}${tag}</td><td>${a.line}</td>${cells}</tr>`;
+  }).join("");
+
+  const n = (r.peers||[]).filter(p=>p!==r.station).length;
+  document.getElementById("readout").innerHTML =
+    `<span class="lead">${r.lead}</span>${r.body}
+     <div style="margin-top:8px;color:var(--muted);font-size:12px">
+       Verdict <b style="color:var(--ink)">${r.verdict.replace("_"," ")}</b> ·
+       propagates with <b style="color:var(--ink)">${r.via}${r.asset!=="—"?" "+r.asset:""}</b> ·
+       <b style="color:var(--ink)">${n}</b> station${n===1?"":"s"} exposed beyond the finding</div>`;
+}
+
+function drawExtent(){
+  document.getElementById("extent").innerHTML = ROWS.map(r=>{
+    const peers = (r.peers||[]).filter(p=>p!==r.station);
+    return `<tr>
+      <td class="k">${r.id}<div style="font-weight:400;color:var(--muted);font-size:11px">${r.mode}</div></td>
+      <td class="k">${r.station||"—"}</td>
+      <td><span class="v-tag v-${r.verdict}">${r.verdict.replace("_"," ")}</span></td>
+      <td>${r.via}${r.asset!=="—"?" · <b style='color:var(--ink)'>"+r.asset+"</b>":""}</td>
+      <td>${peers.join(", ")||"—"}</td>
+      <td class="num">${peers.length + (r.station?1:0)} / 9</td>
+      <td class="num">${r.units? r.units.toLocaleString() : "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+function drawFindings(){
+  document.getElementById("findings").innerHTML = FINDINGS.map(f=>
+    `<tr><td class="k">${f[0]}</td><td class="k">${f[1]}</td>
+     <td><span class="sev sev-${f[2]}">${f[2].replace("_"," ")}</span></td>
+     <td>${f[3]}</td><td>${f[4]}</td></tr>`
+  ).join("");
+}
+
+document.getElementById("picker").addEventListener("click", e=>{
+  const b = e.target.closest(".chip"); if(!b) return;
+  active = +b.dataset.i; drawPicker(); drawMatrix();
+});
+
+drawPicker(); drawMatrix(); drawExtent(); drawFindings();
+</script>
+</div>
+</body>
+</html>
