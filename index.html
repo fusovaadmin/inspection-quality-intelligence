@@ -33,6 +33,12 @@ code{background:#f0f0f0;padding:1px 5px;border-radius:4px;font-size:12px}
 .note{font-size:12px;color:var(--muted);border-top:1px solid var(--line);
   margin-top:28px;padding-top:14px}
 a.repo{color:var(--accent);font-weight:600}
+figure.shot{margin:16px 0 22px;border:1px solid var(--line);border-radius:8px;
+  overflow:hidden;background:var(--panel)}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:12px;color:var(--muted);background:#fff;
+  padding:9px 14px;border-top:1px solid var(--line)}
+figure.shot figcaption b{color:var(--accent)}
 </style></head><body><div class="wrap">
 
 <h1>Inspection Quality Intelligence</h1>
@@ -56,20 +62,6 @@ a.repo{color:var(--accent);font-weight:600}
     <b>Quality Intelligence Dashboard →</b>
     <span>Live line-flow view across three production lines. Click a station to drill into
     its SPC control chart, root-cause triage, and a test simulator you can run.</span></a>
-  <a class="card wide" href="output/integration.html">
-    <b>Heterogeneous System Integration →</b>
-    <span>The stations are only one source. ERP work orders, an MES shift log and QMS
-    nonconformance reports joined to the floor — three different join strategies, four
-    cross-system breaks no single system can see on its own, and the three raw extracts
-    shown as each system wrote them.</span></a>
-  <a class="card wide" href="output/coverage.html">
-    <b>Coverage &amp; Operating Point →</b>
-    <span>Is the plan looking for the right things, in the right places, at the right
-    sensitivity? A failure mode the floor reports that no station is assigned to detect; a
-    station whose illumination has drifted below the level its surface inspection was
-    accepted at, while its yield and capability still read healthy; and what a false reject
-    costs versus an escape at each position on the line. Every cost figure is an assumption
-    in versioned config, and every conclusion is swept across the assumption ranges.</span></a>
 </div>
 
 <h2>Prototypes</h2>
@@ -107,7 +99,33 @@ a.repo{color:var(--accent);font-weight:600}
   <li><b>Databricks</b> — PySpark job executed on Free Edition, writing Delta tables.
     Its output drives these pages.</li>
   <li><b>Palantir Foundry</b> — a live slice: Pipeline Builder pipeline, a two-object
-    ontology linked one-to-many, and a Workshop scorecard app.</li>
+    ontology linked one-to-many, and a Workshop scorecard app. Two of the three are
+    shown below.</li>
+</ul>
+
+<figure class="shot">
+  <img src="foundry/Foundry-screenshot1.png"
+    alt="Palantir Foundry Workshop application titled Inspection Quality — Station
+    Scorecard, showing four KPI tiles, a nine-station status table, an SPC p-chart, a
+    process-capability bar chart, a rolling first-pass-yield chart and a defect Pareto.">
+  <figcaption><b>Workshop scorecard app.</b> The same figures these pages carry, rendered
+    in Foundry — 97.4% overall first pass yield, two stations in ALERT, and the contrast
+    the demo is built around: S3 collapsed to 0.514 recent Cpk on 11 SPC violations, while
+    S5 stays capable at 1.478 and is flagged anyway on 13.</figcaption>
+</figure>
+
+<figure class="shot">
+  <img src="foundry/Foundry-screenshot2.png"
+    alt="Palantir Foundry Pipeline Builder graph for daily_station_metric_pipeline, showing
+    three input datasets feeding a join and a transform into an output dataset, with a
+    500-row data preview below.">
+  <figcaption><b>Pipeline Builder.</b> <code>inspection_events</code>,
+    <code>daily_prep</code> and <code>daily_fpy</code> joined and transformed into
+    <code>daily_station_metric</code> — deployed and built, 13 of 13 columns
+    mapped.</figcaption>
+</figure>
+
+<ul>
   <li><b>Snowflake</b> — SQL written for portability. Not executed.</li>
   <li><b>Local</b> — the tested pandas reference implementation, 93 passing tests in CI,
     including cell-for-cell SQL/Python parity on the cross-system joins.</li>
